@@ -1,0 +1,34 @@
+# Gradle cache and build outputs
+.gradle/
+build/
+*/build/
+
+# BUT keep the Gradle wrapper (very important for portability!)
+!gradle/
+!gradlew
+!gradlew.bat
+
+# Local configuration (safe to ignore)
+local.properties
+.idea/
+*.iml
+
+# Log files
+*.log
+
+# Android Studio captures
+captures/
+
+# NDK build folders
+.externalNativeBuild/
+.cxx/
+
+# Generated binaries
+*.apk
+*.aab
+*.dex
+*.class
+
+# Misc system files
+.DS_Store
+/out
