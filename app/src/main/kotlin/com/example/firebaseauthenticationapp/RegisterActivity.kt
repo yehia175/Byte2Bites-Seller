@@ -49,7 +49,7 @@ class RegisterActivity : AppCompatActivity() {
                             // Save user profile in Firebase Realtime Database
                             val user = User(name, phone, email)
                             // Inside registerButton.setOnClickListener after successful database save
-                            database.child("users").child(currentUser.uid)
+                            database.child("Sellers").child(currentUser.uid)
                                 .setValue(user)
                                 .addOnSuccessListener {
                                     Toast.makeText(this, "Registration successful", Toast.LENGTH_SHORT).show()

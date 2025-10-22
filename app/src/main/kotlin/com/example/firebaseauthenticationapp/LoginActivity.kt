@@ -41,8 +41,8 @@ class LoginActivity : AppCompatActivity() {
                     if (task.isSuccessful) {
                         val currentUser = auth.currentUser
                         if (currentUser != null) {
-                            // Fetch user profile from Realtime Database
-                            database.child("users").child(currentUser.uid)
+                            // Fetch user profile from REALTIME Database
+                            database.child("Sellers").child(currentUser.uid)
                                 .get()
                                 .addOnSuccessListener { snapshot ->
                                     val user = snapshot.getValue(User::class.java)

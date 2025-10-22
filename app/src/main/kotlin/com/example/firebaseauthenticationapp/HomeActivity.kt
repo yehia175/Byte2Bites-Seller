@@ -30,7 +30,7 @@ class HomeActivity : AppCompatActivity() {
         // Fetch user profile from intent extras or Firebase
         val currentUser = auth.currentUser
         if (currentUser != null) {
-            database.child("users").child(currentUser.uid)
+            database.child("Sellers").child(currentUser.uid)
                 .get()
                 .addOnSuccessListener { snapshot ->
                     val user = snapshot.getValue(User::class.java)
@@ -57,7 +57,7 @@ class HomeActivity : AppCompatActivity() {
 
             val updatedUser = User(name, phone, currentUser?.email ?: "")
             currentUser?.uid?.let { uid ->
-                database.child("users").child(uid)
+                database.child("Sellers").child(uid)
                     .setValue(updatedUser)
                     .addOnSuccessListener {
                         Toast.makeText(this, "Profile updated!", Toast.LENGTH_SHORT).show()

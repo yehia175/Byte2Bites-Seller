@@ -1,13 +1,33 @@
 {
   "project_info": {
-    "project_number": "567468481919",
-    "project_id": "authenticationapp-1951a",
-    "storage_bucket": "authenticationapp-1951a.firebasestorage.app"
+    "project_number": "843218224671",
+    "firebase_url": "https://foody-firebase-1a2d9-default-rtdb.firebaseio.com",
+    "project_id": "foody-firebase-1a2d9",
+    "storage_bucket": "foody-firebase-1a2d9.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:567468481919:android:4c5cd48a8dd6bc05b78e4a",
+        "mobilesdk_app_id": "1:843218224671:android:427ea887c9a036f4c9372a",
+        "android_client_info": {
+          "package_name": "com.byte2bites.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBvwhVjWsa_fdcpS7tPXs-AeSYsJvDyOPE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:843218224671:android:b705133318303a79c9372a",
         "android_client_info": {
           "package_name": "com.example.firebaseauthenticationapp"
         }
@@ -15,7 +35,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyATfObYA-Moc53EldZO1tIQujhInbn3RfI"
+          "current_key": "AIzaSyBvwhVjWsa_fdcpS7tPXs-AeSYsJvDyOPE"
         }
       ],
       "services": {
