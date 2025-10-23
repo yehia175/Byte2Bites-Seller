@@ -48,16 +48,16 @@ class RegisterActivity : AppCompatActivity() {
                         if (currentUser != null) {
                             // Save user profile in Firebase Realtime Database
                             val user = User(name, phone, email)
-                            // Inside registerButton.setOnClickListener after successful database save
                             database.child("Sellers").child(currentUser.uid)
                                 .setValue(user)
                                 .addOnSuccessListener {
                                     Toast.makeText(this, "Registration successful", Toast.LENGTH_SHORT).show()
+
+                                    // ✅ Redirect to HomeActivity instead of ProfileActivity
                                     val intent = Intent(this, HomeActivity::class.java)
                                     startActivity(intent)
                                     finish()
                                 }
-
                                 .addOnFailureListener { e ->
                                     Toast.makeText(this, "Error saving profile: ${e.message}", Toast.LENGTH_SHORT).show()
                                 }

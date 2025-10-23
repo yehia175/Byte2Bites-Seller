@@ -19,9 +19,8 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import java.io.File
 import java.io.FileOutputStream
-import java.util.UUID
 
-class HomeActivity : AppCompatActivity() {
+class profileActivity : AppCompatActivity() {
 
     private lateinit var auth: FirebaseAuth
     private val database = FirebaseDatabase.getInstance().reference
@@ -32,6 +31,7 @@ class HomeActivity : AppCompatActivity() {
     private lateinit var phoneField: EditText
     private lateinit var saveButton: Button
     private lateinit var logoutButton: Button
+    private lateinit var backButton: ImageButton
 
     private var selectedImageUri: Uri? = null
 
@@ -50,7 +50,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_home)
+        setContentView(R.layout.activity_profile)
 
         auth = FirebaseAuth.getInstance()
         s3Client = AmazonS3Client(BasicAWSCredentials(ACCESS_KEY, SECRET_KEY))
@@ -59,12 +59,20 @@ class HomeActivity : AppCompatActivity() {
             .s3Client(s3Client)
             .build()
 
+        // Find views
+        backButton = findViewById(R.id.backButton)
         profileImage = findViewById(R.id.profileImage)
         nameField = findViewById(R.id.nameField)
         emailField = findViewById(R.id.emailField)
         phoneField = findViewById(R.id.phoneField)
         saveButton = findViewById(R.id.saveButton)
         logoutButton = findViewById(R.id.logoutButton)
+
+        // Back button click
+        backButton.setOnClickListener {
+            startActivity(Intent(this, HomeActivity::class.java))
+            finish()
+        }
 
         loadUserProfile()
 
@@ -92,7 +100,6 @@ class HomeActivity : AppCompatActivity() {
                         saveUserProfile(uid, name, phone, currentUser.email ?: "", imageUrl)
                     }
                 } else {
-                    // Keep existing photo URL
                     database.child("Sellers").child(uid).get().addOnSuccessListener { snapshot ->
                         val existingUser = snapshot.getValue(User::class.java)
                         val imageUrl = existingUser?.profileImageUrl ?: ""
@@ -146,7 +153,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun uploadImageToS3(uid: String, imageUri: Uri, callback: (String) -> Unit) {
-        // Use unique filename for every upload
         val uniqueFileName = "$uid-${System.currentTimeMillis()}.jpg"
         val tempFile = File(cacheDir, uniqueFileName)
         try {
@@ -176,7 +182,7 @@ class HomeActivity : AppCompatActivity() {
                         tempFile.delete()
                     }
                 } else if (state == TransferState.FAILED) {
-                    Toast.makeText(this@HomeActivity, "Upload failed", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@profileActivity, "Upload failed", Toast.LENGTH_SHORT).show()
                     tempFile.delete()
                 }
             }
@@ -184,7 +190,7 @@ class HomeActivity : AppCompatActivity() {
             override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {}
             override fun onError(id: Int, ex: Exception?) {
                 runOnUiThread {
-                    Toast.makeText(this@HomeActivity, "Error: ${ex?.message}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this@profileActivity, "Error: ${ex?.message}", Toast.LENGTH_SHORT).show()
                     tempFile.delete()
                 }
             }

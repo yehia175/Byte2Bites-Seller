@@ -41,13 +41,13 @@ class LoginActivity : AppCompatActivity() {
                     if (task.isSuccessful) {
                         val currentUser = auth.currentUser
                         if (currentUser != null) {
-                            // Fetch user profile from REALTIME Database
+                            // Fetch user profile from Firebase Realtime Database
                             database.child("Sellers").child(currentUser.uid)
                                 .get()
                                 .addOnSuccessListener { snapshot ->
                                     val user = snapshot.getValue(User::class.java)
                                     if (user != null) {
-                                        // Navigate to HomeActivity with user data
+                                        // ✅ Redirect to HomeActivity instead of ProfileActivity
                                         val intent = Intent(this, HomeActivity::class.java)
                                         intent.putExtra("name", user.name)
                                         intent.putExtra("phone", user.phone)

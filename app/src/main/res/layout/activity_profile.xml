@@ -10,8 +10,18 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:padding="24dp"
-        android:gravity="center_horizontal"
-        android:background="@android:color/transparent">
+        android:gravity="center_horizontal">
+
+        <!-- Back Button Top-Left (larger) -->
+        <ImageButton
+            android:id="@+id/backButton"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:layout_gravity="start"
+            android:layout_marginBottom="16dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@android:drawable/ic_menu_revert"
+            android:contentDescription="Back" />
 
         <!-- Title -->
         <TextView
@@ -23,17 +33,14 @@
             android:textColor="@android:color/white"
             android:layout_marginBottom="24dp" />
 
-        <!-- Single Profile Image -->
+        <!-- Profile Image -->
         <ImageView
             android:id="@+id/profileImage"
             android:layout_width="150dp"
             android:layout_height="150dp"
             android:layout_marginBottom="24dp"
-            android:background="@drawable/profile_placeholder"
-            android:src="@drawable/ic_person"
             android:scaleType="centerCrop"
-            android:contentDescription="Profile Image"
-            android:elevation="8dp" />
+            android:contentDescription="Profile Image" />
 
         <!-- Name Field -->
         <EditText
@@ -46,8 +53,6 @@
             android:textColor="#000000"
             android:textColorHint="#666666"
             android:layout_marginBottom="16dp"
-            android:layout_marginHorizontal="8dp"
-            android:elevation="4dp"
             android:inputType="textPersonName" />
 
         <!-- Email Field -->
@@ -62,8 +67,6 @@
             android:textColorHint="#666666"
             android:enabled="false"
             android:layout_marginBottom="16dp"
-            android:layout_marginHorizontal="8dp"
-            android:elevation="4dp"
             android:inputType="textEmailAddress" />
 
         <!-- Phone Field -->
@@ -77,8 +80,6 @@
             android:textColor="#000000"
             android:textColorHint="#666666"
             android:layout_marginBottom="24dp"
-            android:layout_marginHorizontal="8dp"
-            android:elevation="4dp"
             android:inputType="number" />
 
         <!-- Save Button -->
@@ -90,9 +91,7 @@
             android:textStyle="bold"
             android:textColor="@android:color/white"
             android:backgroundTint="#64B5F6"
-            android:layout_marginBottom="16dp"
-            android:layout_marginHorizontal="8dp"
-            android:elevation="6dp" />
+            android:layout_marginBottom="16dp" />
 
         <!-- Logout Button -->
         <Button
@@ -102,9 +101,7 @@
             android:text="Logout"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:backgroundTint="#1976D2"
-            android:layout_marginHorizontal="8dp"
-            android:elevation="6dp" />
+            android:backgroundTint="#1976D2" />
 
     </LinearLayout>
 </ScrollView>
