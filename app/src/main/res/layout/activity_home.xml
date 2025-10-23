@@ -13,6 +13,7 @@
         android:gravity="center_horizontal"
         android:background="@android:color/transparent">
 
+        <!-- Title -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -20,8 +21,21 @@
             android:textSize="28sp"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:layout_marginBottom="32dp" />
+            android:layout_marginBottom="24dp" />
 
+        <!-- Single Profile Image -->
+        <ImageView
+            android:id="@+id/profileImage"
+            android:layout_width="150dp"
+            android:layout_height="150dp"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/profile_placeholder"
+            android:src="@drawable/ic_person"
+            android:scaleType="centerCrop"
+            android:contentDescription="Profile Image"
+            android:elevation="8dp" />
+
+        <!-- Name Field -->
         <EditText
             android:id="@+id/nameField"
             android:layout_width="match_parent"
@@ -36,6 +50,7 @@
             android:elevation="4dp"
             android:inputType="textPersonName" />
 
+        <!-- Email Field -->
         <EditText
             android:id="@+id/emailField"
             android:layout_width="match_parent"
@@ -51,6 +66,7 @@
             android:elevation="4dp"
             android:inputType="textEmailAddress" />
 
+        <!-- Phone Field -->
         <EditText
             android:id="@+id/phoneField"
             android:layout_width="match_parent"
@@ -65,6 +81,7 @@
             android:elevation="4dp"
             android:inputType="number" />
 
+        <!-- Save Button -->
         <Button
             android:id="@+id/saveButton"
             android:layout_width="match_parent"
@@ -77,6 +94,7 @@
             android:layout_marginHorizontal="8dp"
             android:elevation="6dp" />
 
+        <!-- Logout Button -->
         <Button
             android:id="@+id/logoutButton"
             android:layout_width="match_parent"

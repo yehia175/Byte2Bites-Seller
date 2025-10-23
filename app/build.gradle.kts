@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    kotlin("kapt")
     id("com.google.gms.google-services")
 }
 
@@ -68,5 +69,12 @@ dependencies {
     implementation ("org.jetbrains.kotlin:kotlin-stdlib:1.8.22")
     // Firebase Realtime Database
     implementation ("com.google.firebase:firebase-database-ktx:20.3.1")
+
+    // AWS S3 SDK for file uploads
+    implementation("com.amazonaws:aws-android-sdk-s3:2.81.0")
+
+    // Glide for loading images from a URL
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0")
 
 }
