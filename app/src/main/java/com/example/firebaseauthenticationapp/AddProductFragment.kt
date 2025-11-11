@@ -33,7 +33,7 @@ class AddProductFragment : Fragment() {
 
     private val PICK_IMAGE_REQUEST = 100
 
-    // AWS Credentials (replace with your own)
+    // ⚠️ Replace with your own credentials before releasing app
     private val AWS_ACCESS_KEY = ""
     private val AWS_SECRET_KEY = ""
     private val BUCKET_NAME = ""
@@ -55,15 +55,16 @@ class AddProductFragment : Fragment() {
         buttonUpload = view.findViewById(R.id.buttonUploadProduct)
         backButton = view.findViewById(R.id.backButton)
 
+        // Pick Image
         buttonSelectImage.setOnClickListener { pickImageFromGallery() }
 
+        // Upload Product
         buttonUpload.setOnClickListener { uploadProduct() }
 
+        // Back Button
         backButton.setOnClickListener {
-            // Navigate back to ProductFragment
-            val fragment = ProductFragment()
             parentFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, fragment)
+                .replace(R.id.fragmentContainer, ProductFragment())
                 .commit()
         }
 
@@ -93,7 +94,6 @@ class AddProductFragment : Fragment() {
             return
         }
 
-        // Upload image to AWS S3
         val credentials = BasicAWSCredentials(AWS_ACCESS_KEY, AWS_SECRET_KEY)
         val s3Client = AmazonS3Client(credentials)
         val transferUtility = TransferUtility.builder()
@@ -118,43 +118,48 @@ class AddProductFragment : Fragment() {
             }
 
             override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {}
-
             override fun onError(id: Int, ex: Exception?) {
                 Toast.makeText(context, "Error uploading image: ${ex?.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
+    // ✅ Save product in Firebase then go back to ProductFragment
     private fun saveProductToFirebase(name: String, description: String, price: String, imageUrl: String) {
-        val productsRef = database.getReference("products")
-        val newProductRef = productsRef.push()
-        val productID = newProductRef.key ?: return
-
-        val productData = mapOf(
-            "name" to name,
-            "imageUrl" to imageUrl,
-            "description" to description,
-            "price" to price
-        )
-
         val sellerUID = auth.currentUser?.uid ?: run {
             Toast.makeText(context, "User not authenticated", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val updates = HashMap<String, Any?>()
-        updates["/products/$productID"] = productData
-        updates["/sellers/$sellerUID/products/$productID"] = true
+        val productsRef = database.getReference("Sellers").child(sellerUID).child("products")
+        val newProductRef = productsRef.push()
+        val productID = newProductRef.key ?: return
 
-        database.reference.updateChildren(updates).addOnSuccessListener {
-            Toast.makeText(context, "Product added successfully", Toast.LENGTH_SHORT).show()
-            // Clear inputs, stay on same page
-            editTextName.text.clear()
-            editTextDescription.text.clear()
-            editTextPrice.text.clear()
-            imageView.setImageResource(R.drawable.placeholder)
-        }.addOnFailureListener { e ->
-            Toast.makeText(context, "Error saving product: ${e.message}", Toast.LENGTH_SHORT).show()
-        }
+        val productData = mapOf(
+            "productID" to productID,
+            "name" to name,
+            "description" to description,
+            "price" to price,
+            "imageUrl" to imageUrl
+        )
+
+        newProductRef.setValue(productData)
+            .addOnSuccessListener {
+                Toast.makeText(context, "✅ Product added successfully", Toast.LENGTH_SHORT).show()
+
+                // Clear input fields
+                editTextName.text.clear()
+                editTextDescription.text.clear()
+                editTextPrice.text.clear()
+                imageView.setImageResource(R.drawable.placeholder)
+
+                // ⬅️ Navigate back to ProductFragment (Home)
+                parentFragmentManager.beginTransaction()
+                    .replace(R.id.fragmentContainer, ProductFragment())
+                    .commit()
+            }
+            .addOnFailureListener { e ->
+                Toast.makeText(context, "❌ Error saving product: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
     }
 }

@@ -37,6 +37,7 @@ class profileActivity : AppCompatActivity() {
 
     // AWS CONFIGURATION
     private val ACCESS_KEY = ""
+
     private val SECRET_KEY = ""
     private val BUCKET_NAME = ""
 
