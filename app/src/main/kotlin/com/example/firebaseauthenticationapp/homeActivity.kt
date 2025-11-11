@@ -3,6 +3,7 @@ package com.example.firebaseauthenticationapp
 import android.content.Intent
 import android.os.Bundle
 import android.widget.ImageButton
+import com.google.android.material.floatingactionbutton.FloatingActionButton
 import androidx.appcompat.app.AppCompatActivity
 
 class HomeActivity : AppCompatActivity() {
@@ -10,13 +11,29 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        // Find the profile ImageButton
+        // === Profile Button ===
         val profileButton = findViewById<ImageButton>(R.id.profileButton)
-
-        // When clicked, go to ProfileActivity
         profileButton.setOnClickListener {
             val intent = Intent(this, profileActivity::class.java)
             startActivity(intent)
+        }
+
+        // === Load ProductFragment by default ===
+        if (savedInstanceState == null) {
+            val productFragment = ProductFragment()
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, productFragment)
+                .commit()
+        }
+
+        // === Floating Action Button for adding new product ===
+        val addItemFab = findViewById<FloatingActionButton>(R.id.addItemFab)
+        addItemFab.setOnClickListener {
+            val addFragment = AddProductFragment()
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, addFragment)
+                .addToBackStack(null)
+                .commit()
         }
     }
 }

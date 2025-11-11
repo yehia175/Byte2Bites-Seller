@@ -39,7 +39,6 @@ class profileActivity : AppCompatActivity() {
     private val ACCESS_KEY = ""
     private val SECRET_KEY = ""
     private val BUCKET_NAME = ""
-    private val REGION = Regions.EU_NORTH_1
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
