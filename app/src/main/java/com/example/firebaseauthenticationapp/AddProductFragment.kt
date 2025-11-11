@@ -144,8 +144,7 @@ class AddProductFragment : Fragment() {
 
         val updates = HashMap<String, Any?>()
         updates["/products/$productID"] = productData
-        updates["/sellers/$sellerUID/products/$productID"] = true
-
+        updates["/Sellers/$sellerUID/products/$productID"] = true
         database.reference.updateChildren(updates).addOnSuccessListener {
             Toast.makeText(context, "Product added successfully", Toast.LENGTH_SHORT).show()
             // Clear inputs, stay on same page
