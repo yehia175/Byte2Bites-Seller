@@ -21,6 +21,7 @@ class EditProductActivity : AppCompatActivity() {
     private lateinit var nameEditText: EditText
     private lateinit var descriptionEditText: EditText
     private lateinit var priceEditText: EditText
+    private lateinit var quantityEditText: EditText  // ✅ Added quantity field
     private lateinit var productImageView: ImageView
     private lateinit var saveButton: Button
     private lateinit var backButton: ImageButton
@@ -30,9 +31,9 @@ class EditProductActivity : AppCompatActivity() {
     private var productID: String? = null
 
     // AWS S3 Configuration
-    private val ACCESS_KEY = ""
-    private val SECRET_KEY = ""
-    private val BUCKET_NAME = ""
+    private val ACCESS_KEY = "AKIA6GUTHW7WWVAJSLK4"
+    private val SECRET_KEY = "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"
+    private val BUCKET_NAME = "bitesbkt"
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
@@ -56,6 +57,7 @@ class EditProductActivity : AppCompatActivity() {
         nameEditText = findViewById(R.id.editProductName)
         descriptionEditText = findViewById(R.id.editProductDescription)
         priceEditText = findViewById(R.id.editProductPrice)
+        quantityEditText = findViewById(R.id.editProductQuantity)  // ✅ Link the quantity view
         productImageView = findViewById(R.id.editProductImage)
         saveButton = findViewById(R.id.saveProductButton)
         backButton = findViewById(R.id.editProductBackButton)
@@ -67,7 +69,9 @@ class EditProductActivity : AppCompatActivity() {
             nameEditText.setText(it.name)
             descriptionEditText.setText(it.description)
             priceEditText.setText(it.price)
+            quantityEditText.setText(it.quantity)  // ✅ Load quantity
             currentImageUrl = it.imageUrl
+
             if (!currentImageUrl.isNullOrEmpty()) {
                 Glide.with(this).load(currentImageUrl)
                     .placeholder(R.drawable.placeholder)
@@ -90,28 +94,30 @@ class EditProductActivity : AppCompatActivity() {
             val name = nameEditText.text.toString().trim()
             val description = descriptionEditText.text.toString().trim()
             val price = priceEditText.text.toString().trim()
+            val quantity = quantityEditText.text.toString().trim()  // ✅ Get quantity
 
-            if (name.isEmpty() || price.isEmpty()) {
-                Toast.makeText(this, "Name and Price cannot be empty", Toast.LENGTH_SHORT).show()
+            if (name.isEmpty() || price.isEmpty() || quantity.isEmpty()) {
+                Toast.makeText(this, "Name, Price, and Quantity cannot be empty", Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
             if (selectedImageUri != null) {
                 uploadImageToS3(selectedImageUri!!) { uploadedUrl ->
-                    saveProduct(name, description, price, uploadedUrl)
+                    saveProduct(name, description, price, quantity, uploadedUrl)
                 }
             } else {
-                saveProduct(name, description, price, currentImageUrl ?: "")
+                saveProduct(name, description, price, quantity, currentImageUrl ?: "")
             }
         }
     }
 
-    private fun saveProduct(name: String, description: String, price: String, imageUrl: String) {
+    private fun saveProduct(name: String, description: String, price: String, quantity: String, imageUrl: String) {
         val updatedProduct = Product(
             productID = productID,
             name = name,
             description = description,
             price = price,
+            quantity = quantity,
             imageUrl = imageUrl
         )
 
@@ -122,7 +128,6 @@ class EditProductActivity : AppCompatActivity() {
         databaseRef.setValue(updatedProduct)
             .addOnSuccessListener {
                 Toast.makeText(this, "Product updated!", Toast.LENGTH_SHORT).show()
-                // ✅ Set result so fragment can refresh immediately
                 setResult(Activity.RESULT_OK)
                 finish()
             }

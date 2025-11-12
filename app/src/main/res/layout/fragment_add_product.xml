@@ -1,3 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
@@ -28,9 +29,9 @@
             android:layout_gravity="start"
             android:background="?attr/selectableItemBackgroundBorderless"
             android:src="@android:drawable/ic_menu_revert"
-            android:contentDescription="Back"/>
+            android:contentDescription="Back" />
 
-        <!-- Button to Select Image from Gallery/Camera -->
+        <!-- Button to Select Image -->
         <Button
             android:id="@+id/buttonSelectImage"
             android:layout_width="wrap_content"
@@ -64,6 +65,15 @@
             android:layout_height="wrap_content"
             android:hint="Price"
             android:inputType="numberDecimal"
+            android:layout_marginBottom="16dp" />
+
+        <!-- ✅ Product Quantity Input -->
+        <EditText
+            android:id="@+id/editTextProductQuantity"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Quantity"
+            android:inputType="number"
             android:layout_marginBottom="24dp" />
 
         <!-- Upload / Save Product Button -->

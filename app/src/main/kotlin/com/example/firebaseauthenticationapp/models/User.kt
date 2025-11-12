@@ -4,5 +4,6 @@ data class User(
     val name: String = "",
     val phone: String = "",
     val email: String = "",
-    val profileImageUrl: String = ""
+    val profileImageUrl: String = "",
+    var deliveryInfo: String? = "" // ✅ new field
 )

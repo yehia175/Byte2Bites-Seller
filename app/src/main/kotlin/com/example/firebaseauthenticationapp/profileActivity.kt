@@ -10,7 +10,6 @@ import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferUtility
-import com.amazonaws.regions.Regions
 import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.CannedAccessControlList
 import com.bumptech.glide.Glide
@@ -29,6 +28,7 @@ class profileActivity : AppCompatActivity() {
     private lateinit var nameField: EditText
     private lateinit var emailField: EditText
     private lateinit var phoneField: EditText
+    private lateinit var deliveryField: EditText  // delivery info
     private lateinit var saveButton: Button
     private lateinit var logoutButton: Button
     private lateinit var backButton: ImageButton
@@ -36,10 +36,9 @@ class profileActivity : AppCompatActivity() {
     private var selectedImageUri: Uri? = null
 
     // AWS CONFIGURATION
-    private val ACCESS_KEY = ""
-
-    private val SECRET_KEY = ""
-    private val BUCKET_NAME = ""
+    private val ACCESS_KEY = "AKIA6GUTHW7WWVAJSLK4"
+    private val SECRET_KEY = "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"
+    private val BUCKET_NAME = "bitesbkt"
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
@@ -65,6 +64,7 @@ class profileActivity : AppCompatActivity() {
         nameField = findViewById(R.id.nameField)
         emailField = findViewById(R.id.emailField)
         phoneField = findViewById(R.id.phoneField)
+        deliveryField = findViewById(R.id.deliveryField)
         saveButton = findViewById(R.id.saveButton)
         logoutButton = findViewById(R.id.logoutButton)
 
@@ -86,6 +86,7 @@ class profileActivity : AppCompatActivity() {
         saveButton.setOnClickListener {
             val name = nameField.text.toString()
             val phone = phoneField.text.toString()
+            val delivery = deliveryField.text.toString()
 
             if (name.isEmpty() || phone.isEmpty()) {
                 Toast.makeText(this, "Name and Phone cannot be empty", Toast.LENGTH_SHORT).show()
@@ -97,13 +98,13 @@ class profileActivity : AppCompatActivity() {
                 val uid = currentUser.uid
                 if (selectedImageUri != null) {
                     uploadImageToS3(uid, selectedImageUri!!) { imageUrl ->
-                        saveUserProfile(uid, name, phone, currentUser.email ?: "", imageUrl)
+                        updateUserProfile(uid, name, phone, delivery, currentUser.email ?: "", imageUrl)
                     }
                 } else {
                     database.child("Sellers").child(uid).get().addOnSuccessListener { snapshot ->
                         val existingUser = snapshot.getValue(User::class.java)
                         val imageUrl = existingUser?.profileImageUrl ?: ""
-                        saveUserProfile(uid, name, phone, currentUser.email ?: "", imageUrl)
+                        updateUserProfile(uid, name, phone, delivery, currentUser.email ?: "", imageUrl)
                     }
                 }
             }
@@ -127,6 +128,7 @@ class profileActivity : AppCompatActivity() {
                     nameField.setText(user.name)
                     emailField.setText(user.email)
                     phoneField.setText(user.phone)
+                    deliveryField.setText(user.deliveryInfo)
                     if (!user.profileImageUrl.isNullOrEmpty()) {
                         Glide.with(this)
                             .load(user.profileImageUrl)
@@ -140,10 +142,18 @@ class profileActivity : AppCompatActivity() {
             }
     }
 
-    private fun saveUserProfile(uid: String, name: String, phone: String, email: String, imageUrl: String) {
-        val updatedUser = User(name, phone, email, imageUrl)
+    // ✅ Updated function to only update child nodes
+    private fun updateUserProfile(uid: String, name: String, phone: String, delivery: String, email: String, imageUrl: String) {
+        val updates = mapOf<String, Any>(
+            "name" to name,
+            "phone" to phone,
+            "email" to email,
+            "profileImageUrl" to imageUrl,
+            "deliveryInfo" to delivery
+        )
+
         database.child("Sellers").child(uid)
-            .setValue(updatedUser)
+            .updateChildren(updates)
             .addOnSuccessListener {
                 Toast.makeText(this, "Profile updated!", Toast.LENGTH_SHORT).show()
             }
