@@ -35,6 +35,7 @@ class AddProductFragment : Fragment() {
 
     // ⚠️ Replace with your own credentials before releasing app
     private val AWS_ACCESS_KEY = ""
+
     private val AWS_SECRET_KEY = ""
     private val BUCKET_NAME = ""
 

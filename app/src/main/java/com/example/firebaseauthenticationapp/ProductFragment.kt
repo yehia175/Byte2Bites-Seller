@@ -1,7 +1,8 @@
 package com.example.firebaseauthenticationapp
 
+import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,9 +18,15 @@ class ProductFragment : Fragment() {
     private lateinit var recyclerView: RecyclerView
     private lateinit var emptyTextView: TextView
     private lateinit var productList: MutableList<Product>
+    private lateinit var adapter: ProductAdapter
 
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()
+    private val TAG = "ProductFragment"
+
+    companion object {
+        private const val REQUEST_EDIT_PRODUCT = 101
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -33,63 +40,58 @@ class ProductFragment : Fragment() {
         recyclerView.layoutManager = GridLayoutManager(context, 2)
         productList = mutableListOf()
 
-        // Load seller products
-        loadProducts()
+        adapter = ProductAdapter(requireContext(), productList) { product ->
+            // Open EditProductActivity with startActivityForResult
+            val intent = Intent(requireContext(), EditProductActivity::class.java)
+            intent.putExtra(EditProductActivity.EXTRA_PRODUCT, product)
+            startActivityForResult(intent, REQUEST_EDIT_PRODUCT)
+        }
 
+        recyclerView.adapter = adapter
+        loadProducts()
         return view
     }
 
     private fun loadProducts() {
         val sellerUID = auth.currentUser?.uid
         if (sellerUID == null) {
-            Log.e("ProductFragment", "Current user is null! User is not signed in.")
+            emptyTextView.text = "Error: Not logged in."
             emptyTextView.visibility = View.VISIBLE
-            emptyTextView.text = "User not signed in"
             return
         }
 
         val sellerProductsRef = database.getReference("Sellers/$sellerUID/products")
-
         sellerProductsRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 productList.clear()
 
                 if (!snapshot.exists()) {
-                    emptyTextView.visibility = View.VISIBLE
                     emptyTextView.text = "No products added yet"
+                    emptyTextView.visibility = View.VISIBLE
+                    adapter.notifyDataSetChanged()
                     return
                 }
 
-                for (productSnap in snapshot.children) {
-                    try {
-                        val product = productSnap.getValue(Product::class.java)
-                        if (product != null) {
-                            productList.add(product)
-                        } else {
-                            Log.w("ProductFragment", "Product is null: $productSnap")
-                        }
-                    } catch (e: Exception) {
-                        Log.e("ProductFragment", "Failed to parse product: $productSnap", e)
-                    }
+                emptyTextView.visibility = View.GONE
+                for (productSnapshot in snapshot.children) {
+                    val product = productSnapshot.getValue(Product::class.java)
+                    product?.let { productList.add(it) }
                 }
-
-                emptyTextView.visibility = if (productList.isEmpty()) View.VISIBLE else View.GONE
+                adapter.notifyDataSetChanged()
             }
 
             override fun onCancelled(error: DatabaseError) {
-                Log.e("ProductFragment", "Firebase error: ${error.message}")
-                emptyTextView.visibility = View.VISIBLE
                 emptyTextView.text = "Failed to load products"
+                emptyTextView.visibility = View.VISIBLE
             }
         })
     }
 
-    // --- Inner Product class ---
-    data class Product(
-        var name: String? = "",
-        var description: String? = "",
-        var price: Double? = 0.0
-    ) {
-        constructor() : this("", "", 0.0) // Required for Firebase
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_EDIT_PRODUCT && resultCode == Activity.RESULT_OK) {
+            // Reload product list to reflect edits
+            loadProducts()
+        }
     }
 }

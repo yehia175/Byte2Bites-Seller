@@ -3,7 +3,8 @@
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:padding="4dp">
+    android:padding="4dp"
+    android:background="@android:color/white">
 
     <!-- Product Image -->
     <ImageView
@@ -11,7 +12,9 @@
         android:layout_width="match_parent"
         android:layout_height="120dp"
         android:scaleType="centerCrop"
-        android:contentDescription="Product Image" />
+        android:adjustViewBounds="true"
+        android:contentDescription="Product Image"
+        android:background="#CCCCCC" /> <!-- temporary gray background to debug -->
 
     <!-- Product Name -->
     <TextView
@@ -20,7 +23,7 @@
         android:layout_height="wrap_content"
         android:text="Product Name"
         android:textAlignment="center"
-        android:textSize="14sp"
+        android:textSize="16sp"
         android:textColor="@android:color/black"
-        android:paddingTop="4dp"/>
+        android:paddingTop="8dp"/>
 </LinearLayout>
