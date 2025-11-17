@@ -8,6 +8,19 @@
     android:background="#E3F2FD"
     tools:context=".MainActivity">
 
+    <!-- Top-left Orders Button -->
+    <ImageButton
+        android:id="@+id/ordersButton"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:src="@android:drawable/ic_menu_agenda"
+        android:contentDescription="Orders"
+        android:layout_marginTop="16dp"
+        android:layout_marginStart="16dp"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
+
     <!-- Existing profile button -->
     <ImageButton
         android:id="@+id/profileButton"

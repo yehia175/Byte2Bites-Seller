@@ -11,6 +11,13 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
+        // === Orders Button (top-left) ===
+        val ordersButton = findViewById<ImageButton>(R.id.ordersButton)
+        ordersButton.setOnClickListener {
+            val intent = Intent(this, OrdersActivity::class.java)
+            startActivity(intent)
+        }
+
         // === Profile Button ===
         val profileButton = findViewById<ImageButton>(R.id.profileButton)
         profileButton.setOnClickListener {
