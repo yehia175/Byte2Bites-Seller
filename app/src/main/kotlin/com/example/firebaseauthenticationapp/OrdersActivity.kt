@@ -49,8 +49,11 @@ class OrdersActivity : AppCompatActivity() {
                         for (itemSnap in itemsSnap.children) {
                             val name = itemSnap.child("name").value?.toString() ?: ""
                             val quantity = itemSnap.child("quantity").value?.toString()?.toIntOrNull() ?: 0
-                            itemList.add(OrderItem(name, quantity))
+                            val productId = itemSnap.child("productID").value?.toString() ?: ""
+
+                            itemList.add(OrderItem(productId, name, quantity))
                         }
+
 
                         // Create a single OrderDisplay per order with orderId and sellerUid
                         val orderDisplay = OrderDisplay(

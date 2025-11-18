@@ -9,6 +9,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
@@ -19,6 +20,8 @@ import com.google.firebase.database.FirebaseDatabase
 class OrderAdapter(
     private var ordersList: MutableList<OrderDisplay>
 ) : RecyclerView.Adapter<OrderAdapter.OrderViewHolder>() {
+
+    private val db = FirebaseDatabase.getInstance().reference
 
     class OrderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val buyerName: TextView = itemView.findViewById(R.id.textBuyerName)
@@ -38,33 +41,79 @@ class OrderAdapter(
         val order = ordersList[position]
         holder.buyerName.text = "Order(Name: ${order.buyerName}):"
 
-        // Nested RecyclerView for items
+        // Nested RecyclerView for order items
         holder.itemsRecyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
         holder.itemsRecyclerView.adapter = OrderItemAdapter(order.items)
         holder.itemsRecyclerView.isNestedScrollingEnabled = false
 
-        val db = FirebaseDatabase.getInstance().reference
-
-        // === Accept Order ===
+        // ==========================
+        //        ACCEPT ORDER
+        // ==========================
         holder.btnAcceptOrder.setOnClickListener {
-            val orderId = order.orderId ?: return@setOnClickListener
-            val sellerUid = order.sellerUid ?: return@setOnClickListener
+            val orderId = order.orderId
+            val sellerUid = order.sellerUid
+            if (orderId.isEmpty() || sellerUid.isEmpty()) return@setOnClickListener
 
-            db.child("Sellers").child(sellerUid).child("orders")
-                .child(orderId).child("status").setValue("PREPARING")
+            var checksDone = 0
+            val insufficientItems = mutableListOf<String>()
 
-            showNotification(
-                holder.itemView.context,
-                "Order Accepted",
-                "Order from ${order.buyerName} is now PREPARING",
-                orderId.hashCode()
-            )
+            // Check each item quantity
+            for ((index, item) in order.items.withIndex()) {
+                val productRef = db.child("Sellers")
+                    .child(sellerUid)
+                    .child("products")
+                    .child(item.productID)
+
+                productRef.get().addOnSuccessListener { snap ->
+                    val currentStr = snap.child("quantity").getValue(String::class.java) ?: "0"
+                    val currentQty = currentStr.toIntOrNull() ?: 0
+
+                    if (currentQty - item.quantity < 0) {
+                        insufficientItems.add("${item.name} (Stock: $currentQty)")
+                    }
+
+                    checksDone++
+                    if (checksDone == order.items.size) {
+                        if (insufficientItems.isNotEmpty()) {
+                            AlertDialog.Builder(holder.itemView.context)
+                                .setTitle("Cannot Accept Order")
+                                .setMessage(
+                                    "Insufficient stock for:\n" +
+                                            insufficientItems.joinToString("\n") +
+                                            "\n\nOrder rejected."
+                                )
+                                .setIcon(android.R.drawable.ic_dialog_alert)
+                                .setPositiveButton("OK", null)
+                                .show()
+                            return@addOnSuccessListener
+                        }
+
+                        // Update order status to PREPARING
+                        db.child("Sellers").child(sellerUid).child("orders")
+                            .child(orderId).child("status").setValue("PREPARING")
+
+                        // Update product quantities (DB stores as STRING)
+                        updateProductQuantities(order.items, sellerUid)
+
+                        // Send notification
+                        showNotification(
+                            holder.itemView.context,
+                            "Order Accepted",
+                            "Order from ${order.buyerName} is now PREPARING",
+                            orderId.hashCode()
+                        )
+                    }
+                }
+            }
         }
 
-        // === Reject Order ===
+        // ==========================
+        //       REJECT ORDER
+        // ==========================
         holder.btnRejectOrder.setOnClickListener {
-            val orderId = order.orderId ?: return@setOnClickListener
-            val sellerUid = order.sellerUid ?: return@setOnClickListener
+            val orderId = order.orderId
+            val sellerUid = order.sellerUid
+            if (orderId.isEmpty() || sellerUid.isEmpty()) return@setOnClickListener
 
             db.child("Sellers").child(sellerUid).child("orders")
                 .child(orderId).removeValue()
@@ -81,10 +130,13 @@ class OrderAdapter(
             )
         }
 
-        // === Finished Preparing ===
+        // ==========================
+        //      FINISHED PREPARING
+        // ==========================
         holder.btnFinishedPreparing.setOnClickListener {
-            val orderId = order.orderId ?: return@setOnClickListener
-            val sellerUid = order.sellerUid ?: return@setOnClickListener
+            val orderId = order.orderId
+            val sellerUid = order.sellerUid
+            if (orderId.isEmpty() || sellerUid.isEmpty()) return@setOnClickListener
 
             db.child("Sellers").child(sellerUid).child("orders")
                 .child(orderId).child("status").setValue("READY FOR PICKUP/DELIVERING")
@@ -105,14 +157,16 @@ class OrderAdapter(
         notifyDataSetChanged()
     }
 
-    // === Notification Helper Function ===
+    // ==========================
+    //     NOTIFICATION HELPER
+    // ==========================
     private fun showNotification(context: Context, title: String, message: String, notificationId: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
         ) return
 
         val builder = NotificationCompat.Builder(context, "order_channel")
-            .setSmallIcon(R.drawable.ic_notification) // placeholder icon
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -120,5 +174,25 @@ class OrderAdapter(
 
         val notificationManager = NotificationManagerCompat.from(context)
         notificationManager.notify(notificationId, builder.build())
+    }
+
+    // ==========================
+    //    UPDATE PRODUCT QUANTITY
+    // ==========================
+    private fun updateProductQuantities(orderItems: List<OrderItem>, sellerUid: String) {
+        for (item in orderItems) {
+            val productId = item.productID
+            if (productId.isEmpty() || sellerUid.isEmpty()) continue
+
+            val qtyRef = db.child("Sellers").child(sellerUid)
+                .child("products").child(productId).child("quantity")
+
+            qtyRef.get().addOnSuccessListener { snap ->
+                val currentStr = snap.getValue(String::class.java) ?: "0"
+                val currentQty = currentStr.toIntOrNull() ?: 0
+                val newQty = (currentQty - item.quantity).coerceAtLeast(0)
+                qtyRef.setValue(newQty.toString())
+            }
+        }
     }
 }
