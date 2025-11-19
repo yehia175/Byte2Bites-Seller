@@ -27,7 +27,7 @@
         android:nestedScrollingEnabled="false"
         android:layout_marginBottom="12dp"/>
 
-    <!-- Buttons -->
+    <!-- FIRST ROW: Accept / Reject / Finished -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -61,10 +61,20 @@
             android:layout_width="0dp"
             android:layout_weight="1"
             android:layout_height="wrap_content"
-            android:text="Finished Preparing"
+            android:text="Order ready"
             android:textColor="#000000"
-            android:backgroundTint="#FFFFFF"
-            android:layout_marginEnd="0dp"/>
+            android:backgroundTint="#FFFFFF"/>
     </LinearLayout>
+
+    <!-- SECOND ROW: Purple Button ALONE -->
+    <Button
+        android:id="@+id/btnCallVoip"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Call Buyer"
+        android:textColor="#FFFFFF"
+        android:layout_marginTop="10dp"
+        android:padding="10dp"
+        android:backgroundTint="@color/purple_500"/>
 
 </LinearLayout>

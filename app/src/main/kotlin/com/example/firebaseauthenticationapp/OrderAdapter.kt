@@ -16,6 +16,7 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.database.FirebaseDatabase
+import android.content.Intent
 
 class OrderAdapter(
     private var ordersList: MutableList<OrderDisplay>
@@ -29,6 +30,8 @@ class OrderAdapter(
         val btnAcceptOrder: Button = itemView.findViewById(R.id.btnAcceptOrder)
         val btnRejectOrder: Button = itemView.findViewById(R.id.btnRejectOrder)
         val btnFinishedPreparing: Button = itemView.findViewById(R.id.btnFinishedPreparing)
+        val btnCallVoip: Button = itemView.findViewById(R.id.btnCallVoip)
+
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): OrderViewHolder {
@@ -45,6 +48,19 @@ class OrderAdapter(
         holder.itemsRecyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
         holder.itemsRecyclerView.adapter = OrderItemAdapter(order.items)
         holder.itemsRecyclerView.isNestedScrollingEnabled = false
+
+        //VOIP Button
+        holder.btnCallVoip.setOnClickListener {
+            val context = holder.itemView.context
+            val intent = Intent(context, VoipCallActivity::class.java)
+
+            // If you want to pass buyer ID, buyer name, orderId, etc:
+            intent.putExtra("buyerName", order.buyerName)
+            intent.putExtra("buyerUid", order.buyerUid)
+            intent.putExtra("orderId", order.orderId)
+
+            context.startActivity(intent)
+        }
 
         // ==========================
         //        ACCEPT ORDER

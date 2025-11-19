@@ -1,7 +1,20 @@
 <resources>
-    <style name="Theme.FirebaseAuthenticationApp" parent="Theme.AppCompat.Light.NoActionBar">
+    <!-- APP THEME (LIGHT MODE) -->
+    <style name="Theme.FirebaseAuthenticationApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand colors -->
         <item name="colorPrimary">@color/purple_500</item>
-        <item name="colorPrimaryDark">@color/purple_700</item>
-        <item name="colorAccent">@color/teal_200</item>
+        <item name="colorPrimaryVariant">@color/purple_700</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary / accent -->
+        <item name="colorSecondary">@color/teal_200</item>
+        <item name="colorSecondaryVariant">@color/teal_700</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@color/purple_700</item>
+
+        <!-- Material compatibility -->
+        <item name="materialThemeOverlay">@style/ThemeOverlay.MaterialComponents</item>
     </style>
 </resources>
