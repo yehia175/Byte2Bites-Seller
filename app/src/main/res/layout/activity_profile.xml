@@ -12,7 +12,7 @@
         android:padding="24dp"
         android:gravity="center_horizontal">
 
-        <!-- Back Button Top-Left (larger) -->
+        <!-- Back Button -->
         <ImageButton
             android:id="@+id/backButton"
             android:layout_width="60dp"
@@ -82,18 +82,30 @@
             android:layout_marginBottom="16dp"
             android:inputType="number" />
 
-        <!-- ✅ Delivery Field -->
-        <EditText
-            android:id="@+id/deliveryField"
+        <!-- ⭐ Restaurant Location Section -->
+        <TextView
+            android:id="@+id/locationText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Delivery Info"
+            android:text="Tap to set location"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
             android:padding="12dp"
-            android:background="@android:color/white"
-            android:textColor="#000000"
-            android:textColorHint="#666666"
-            android:layout_marginBottom="24dp"
-            android:inputType="text" />
+            android:layout_marginBottom="12dp"
+            android:background="#243B80"
+            android:clickable="true"
+            android:focusable="true" />
+
+
+        <Button
+            android:id="@+id/setLocationButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set Location"
+            android:textStyle="bold"
+            android:textColor="@android:color/white"
+            android:backgroundTint="#64B5F6"
+            android:layout_marginBottom="24dp" />
 
         <!-- Save Button -->
         <Button

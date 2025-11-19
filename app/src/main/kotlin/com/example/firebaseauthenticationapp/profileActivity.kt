@@ -1,11 +1,17 @@
 package com.example.firebaseauthenticationapp
 
+import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.location.Address
+import android.location.Geocoder
 import android.net.Uri
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.amazonaws.auth.BasicAWSCredentials
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferListener
 import com.amazonaws.mobileconnectors.s3.transferutility.TransferState
@@ -14,10 +20,12 @@ import com.amazonaws.services.s3.AmazonS3Client
 import com.amazonaws.services.s3.model.CannedAccessControlList
 import com.bumptech.glide.Glide
 import com.example.firebaseauthenticationapp.models.User
+import com.google.android.gms.location.LocationServices
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.FirebaseDatabase
 import java.io.File
 import java.io.FileOutputStream
+import java.util.*
 
 class profileActivity : AppCompatActivity() {
 
@@ -28,23 +36,27 @@ class profileActivity : AppCompatActivity() {
     private lateinit var nameField: EditText
     private lateinit var emailField: EditText
     private lateinit var phoneField: EditText
-    private lateinit var deliveryField: EditText  // delivery info
     private lateinit var saveButton: Button
     private lateinit var logoutButton: Button
     private lateinit var backButton: ImageButton
+    private lateinit var locationText: TextView
 
     private var selectedImageUri: Uri? = null
+    private var latitude: Double? = null
+    private var longitude: Double? = null
+    private var address: String? = null
 
     // AWS CONFIGURATION
-    private val ACCESS_KEY = ""
-    private val SECRET_KEY = ""
-    private val BUCKET_NAME = ""
+    private val ACCESS_KEY = "AKIA6GUTHW7WWVAJSLK4"
+    private val SECRET_KEY = "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"
+    private val BUCKET_NAME = "bitesbkt"
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
 
     companion object {
         private const val IMAGE_PICK_CODE = 1001
+        private const val LOCATION_PERMISSION_CODE = 100
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,11 +76,11 @@ class profileActivity : AppCompatActivity() {
         nameField = findViewById(R.id.nameField)
         emailField = findViewById(R.id.emailField)
         phoneField = findViewById(R.id.phoneField)
-        deliveryField = findViewById(R.id.deliveryField)
         saveButton = findViewById(R.id.saveButton)
         logoutButton = findViewById(R.id.logoutButton)
+        locationText = findViewById(R.id.locationText)
 
-        // Back button click
+        // Back button
         backButton.setOnClickListener {
             startActivity(Intent(this, HomeActivity::class.java))
             finish()
@@ -76,17 +88,22 @@ class profileActivity : AppCompatActivity() {
 
         loadUserProfile()
 
-        // Pick image
+        // Pick profile image
         profileImage.setOnClickListener {
             val intent = Intent(Intent.ACTION_PICK)
             intent.type = "image/*"
             startActivityForResult(intent, IMAGE_PICK_CODE)
         }
 
+        // Tap on locationText to fetch current address
+        locationText.setOnClickListener {
+            getCurrentAddress()
+        }
+
+        // Save profile
         saveButton.setOnClickListener {
             val name = nameField.text.toString()
             val phone = phoneField.text.toString()
-            val delivery = deliveryField.text.toString()
 
             if (name.isEmpty() || phone.isEmpty()) {
                 Toast.makeText(this, "Name and Phone cannot be empty", Toast.LENGTH_SHORT).show()
@@ -98,13 +115,13 @@ class profileActivity : AppCompatActivity() {
                 val uid = currentUser.uid
                 if (selectedImageUri != null) {
                     uploadImageToS3(uid, selectedImageUri!!) { imageUrl ->
-                        updateUserProfile(uid, name, phone, delivery, currentUser.email ?: "", imageUrl)
+                        updateUserProfile(uid, name, phone, currentUser.email ?: "", imageUrl)
                     }
                 } else {
                     database.child("Sellers").child(uid).get().addOnSuccessListener { snapshot ->
                         val existingUser = snapshot.getValue(User::class.java)
                         val imageUrl = existingUser?.profileImageUrl ?: ""
-                        updateUserProfile(uid, name, phone, delivery, currentUser.email ?: "", imageUrl)
+                        updateUserProfile(uid, name, phone, currentUser.email ?: "", imageUrl)
                     }
                 }
             }
@@ -128,7 +145,11 @@ class profileActivity : AppCompatActivity() {
                     nameField.setText(user.name)
                     emailField.setText(user.email)
                     phoneField.setText(user.phone)
-                    deliveryField.setText(user.deliveryInfo)
+                    latitude = user.latitude
+                    longitude = user.longitude
+                    address = user.address
+                    locationText.text = address ?: "Tap to set location"
+
                     if (!user.profileImageUrl.isNullOrEmpty()) {
                         Glide.with(this)
                             .load(user.profileImageUrl)
@@ -142,15 +163,17 @@ class profileActivity : AppCompatActivity() {
             }
     }
 
-    // ✅ Updated function to only update child nodes
-    private fun updateUserProfile(uid: String, name: String, phone: String, delivery: String, email: String, imageUrl: String) {
-        val updates = mapOf<String, Any>(
+    private fun updateUserProfile(uid: String, name: String, phone: String, email: String, imageUrl: String) {
+        val updates = mutableMapOf<String, Any>(
             "name" to name,
             "phone" to phone,
             "email" to email,
-            "profileImageUrl" to imageUrl,
-            "deliveryInfo" to delivery
+            "profileImageUrl" to imageUrl
         )
+
+        latitude?.let { updates["latitude"] = it }
+        longitude?.let { updates["longitude"] = it }
+        address?.let { updates["address"] = it }
 
         database.child("Sellers").child(uid)
             .updateChildren(updates)
@@ -160,6 +183,64 @@ class profileActivity : AppCompatActivity() {
             .addOnFailureListener { e ->
                 Toast.makeText(this, "Update failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
+    }
+
+    private fun getCurrentAddress() {
+        val fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        // Permission check
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED
+        ) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_CODE
+            )
+            return
+        }
+
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                latitude = location.latitude
+                longitude = location.longitude
+
+                try {
+                    val geocoder = Geocoder(this, Locale.getDefault())
+                    val addressList: List<Address> =
+                        geocoder.getFromLocation(latitude!!, longitude!!, 1).orEmpty()
+                    if (addressList.isNotEmpty()) {
+                        val currentAddress = addressList[0].getAddressLine(0)
+                        address = currentAddress
+                        locationText.text = currentAddress
+                        Toast.makeText(this, "Address captured!", Toast.LENGTH_SHORT).show()
+                    } else {
+                        locationText.text = "Unable to get address"
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this, "Geocoder error: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Enable GPS to get location", Toast.LENGTH_SHORT).show()
+            }
+        }.addOnFailureListener {
+            Toast.makeText(this, "Failed to get location: ${it.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                getCurrentAddress()
+            } else {
+                Toast.makeText(this, "Location permission denied", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun uploadImageToS3(uid: String, imageUri: Uri, callback: (String) -> Unit) {

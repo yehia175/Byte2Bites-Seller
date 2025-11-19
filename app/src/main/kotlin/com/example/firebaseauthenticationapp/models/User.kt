@@ -1,9 +1,11 @@
 package com.example.firebaseauthenticationapp.models
 
 data class User(
-    val name: String = "",
-    val phone: String = "",
-    val email: String = "",
-    val profileImageUrl: String = "",
-    var deliveryInfo: String? = "" // ✅ new field
+    val name: String? = "",
+    val email: String? = "",
+    val phone: String? = "",
+    val profileImageUrl: String? = "",
+    var address: String? = null,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

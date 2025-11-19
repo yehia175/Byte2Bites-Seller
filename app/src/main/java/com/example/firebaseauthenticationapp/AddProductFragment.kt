@@ -36,9 +36,9 @@ class AddProductFragment : Fragment() {
     private val PICK_IMAGE_REQUEST = 100
 
     // ⚠️ Replace with your own AWS credentials and bucket
-    private val AWS_ACCESS_KEY = ""
-    private val AWS_SECRET_KEY = ""
-    private val BUCKET_NAME = ""
+    private val AWS_ACCESS_KEY = "AKIA6GUTHW7WWVAJSLK4"
+    private val AWS_SECRET_KEY = "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"
+    private val BUCKET_NAME = "bitesbkt"
 
     private val database = FirebaseDatabase.getInstance()
     private val auth = FirebaseAuth.getInstance()

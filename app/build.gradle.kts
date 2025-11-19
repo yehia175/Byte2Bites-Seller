@@ -76,5 +76,6 @@ dependencies {
     // Glide for loading images from a URL
     implementation("com.github.bumptech.glide:glide:4.16.0")
     kapt("com.github.bumptech.glide:compiler:4.16.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
 }
