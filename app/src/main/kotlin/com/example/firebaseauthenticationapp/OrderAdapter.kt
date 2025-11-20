@@ -1,22 +1,16 @@
 package com.example.firebaseauthenticationapp
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.database.FirebaseDatabase
-import android.content.Intent
 
 class OrderAdapter(
     private var ordersList: MutableList<OrderDisplay>
@@ -41,7 +35,7 @@ class OrderAdapter(
 
     override fun onBindViewHolder(holder: OrderViewHolder, position: Int) {
         val order = ordersList[position]
-        holder.buyerName.text = "Order(Name: ${order.buyerName}):"
+        holder.buyerName.text = "Order (Name: ${order.buyerName}):"
 
         // Nested RecyclerView for order items
         holder.itemsRecyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
@@ -53,10 +47,15 @@ class OrderAdapter(
         // ==========================
         holder.btnCallVoip.setOnClickListener {
             val context = holder.itemView.context
-            val intent = Intent(context, VoipCallActivity::class.java)
-            intent.putExtra("buyerName", order.buyerName)
-            intent.putExtra("buyerUid", order.buyerUid)
-            intent.putExtra("orderId", order.orderId)
+            val intent = Intent(context, VoipCallActivity::class.java).apply {
+                // Auto-fill buyer UID in VoipCallActivity
+                putExtra(VoipCallActivity.EXTRA_CALLEE_UID, order.buyerUid)
+
+                // If in the future you store buyer IP/port in the order (e.g. order.buyerIp, buyerPort)
+                // you can also pass them like this:
+                // putExtra(VoipCallActivity.EXTRA_REMOTE_IP, order.buyerIp)
+                // putExtra(VoipCallActivity.EXTRA_REMOTE_PORT, order.buyerPort)
+            }
             context.startActivity(intent)
         }
 
@@ -107,7 +106,8 @@ class OrderAdapter(
                 .child(item.productID)
 
             productRef.get().addOnSuccessListener { snap ->
-                val currentQty = snap.child("quantity").getValue(String::class.java)?.toIntOrNull() ?: 0
+                val currentQty =
+                    snap.child("quantity").getValue(String::class.java)?.toIntOrNull() ?: 0
                 if (currentQty - item.quantity < 0) {
                     insufficientItems.add("${item.name} (Stock: $currentQty)")
                 }
@@ -115,121 +115,94 @@ class OrderAdapter(
                 checksDone++
                 if (checksDone == order.items.size) {
                     if (insufficientItems.isNotEmpty()) {
-                        AlertDialog.Builder(holder.itemView.context)
-                            .setTitle("Cannot Accept Order")
-                            .setMessage(
-                                "Insufficient stock for:\n" +
-                                        insufficientItems.joinToString("\n") +
-                                        "\n\nOrder rejected."
-                            )
-                            .setIcon(android.R.drawable.ic_dialog_alert)
-                            .setPositiveButton("OK", null)
-                            .show()
-                        return@addOnSuccessListener
+                        showInsufficientDialog(holder.itemView.context, insufficientItems)
+                    } else {
+                        updateStockAndAcceptOrder(order, holder.itemView.context, position)
                     }
-
-                    // Update order status to PREPARING
-                    db.child("Sellers").child(sellerUid).child("orders")
-                        .child(orderId).child("status").setValue("PREPARING")
-
-                    // Update product quantities
-                    updateProductQuantities(order.items, sellerUid)
-
-                    // Notification
-                    showNotification(
-                        holder.itemView.context,
-                        "Order Accepted",
-                        "Order from ${order.buyerName} is now PREPARING",
-                        orderId.hashCode()
-                    )
                 }
             }
         }
+    }
+
+    private fun showInsufficientDialog(context: Context, insufficientItems: List<String>) {
+        AlertDialog.Builder(context)
+            .setTitle("Insufficient Stock")
+            .setMessage(
+                "The following items have insufficient stock:\n\n" +
+                        insufficientItems.joinToString("\n")
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun updateStockAndAcceptOrder(
+        order: OrderDisplay,
+        context: Context,
+        position: Int
+    ) {
+        val orderId = order.orderId
+        val sellerUid = order.sellerUid
+
+        for (item in order.items) {
+            val productRef = db.child("Sellers")
+                .child(sellerUid)
+                .child("products")
+                .child(item.productID)
+
+            productRef.get().addOnSuccessListener { snap ->
+                val currentQty =
+                    snap.child("quantity").getValue(String::class.java)?.toIntOrNull() ?: 0
+                val newQty = (currentQty - item.quantity).coerceAtLeast(0)
+
+                productRef.child("quantity").setValue(newQty.toString())
+            }
+        }
+
+        // Update the order status in the database
+        db.child("Sellers").child(sellerUid).child("orders").child(orderId)
+            .child("status").setValue("ACCEPTED")
+            .addOnSuccessListener {
+                notifyItemChanged(position)
+            }
     }
 
     // ==========================
     //      REJECT ORDER LOGIC
     // ==========================
     private fun rejectOrder(order: OrderDisplay, holder: OrderViewHolder, position: Int) {
-        val orderId = order.orderId
-        val sellerUid = order.sellerUid
-        if (orderId.isEmpty() || sellerUid.isEmpty()) return
+        val context = holder.itemView.context
+        AlertDialog.Builder(context)
+            .setTitle("Reject Order")
+            .setMessage("Are you sure you want to reject this order?")
+            .setPositiveButton("Reject") { _, _ ->
+                val orderId = order.orderId
+                val sellerUid = order.sellerUid
+                if (orderId.isEmpty() || sellerUid.isEmpty()) return@setPositiveButton
 
-        db.child("Sellers").child(sellerUid).child("orders")
-            .child(orderId).removeValue()
-
-        ordersList.removeAt(position)
-        notifyItemRemoved(position)
-        notifyItemRangeChanged(position, ordersList.size)
-
-        showNotification(
-            holder.itemView.context,
-            "Order Rejected",
-            "Order from ${order.buyerName} was rejected",
-            orderId.hashCode()
-        )
+                db.child("Sellers").child(sellerUid).child("orders").child(orderId)
+                    .child("status").setValue("REJECTED")
+                    .addOnSuccessListener {
+                        ordersList.removeAt(position)
+                        notifyItemRemoved(position)
+                    }
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
     }
 
     // ==========================
-    //      FINISHED PREPARING LOGIC
+    //   FINISHED PREPARING LOGIC
     // ==========================
     private fun finishPreparing(order: OrderDisplay, holder: OrderViewHolder) {
+        val context = holder.itemView.context
         val orderId = order.orderId
         val sellerUid = order.sellerUid
         if (orderId.isEmpty() || sellerUid.isEmpty()) return
 
-        // Update status in Firebase
-        db.child("Sellers").child(sellerUid).child("orders")
-            .child(orderId).child("status")
-            .setValue("READY")
-
-        // Notification message based on deliveryType
-        val deliveryMessage = if (order.deliveryType.uppercase() == "DELIVERY") {
-            "READY FOR DELIVERING"
-        } else {
-            "READY FOR PICKUP"
-        }
-
-        showNotification(
-            holder.itemView.context,
-            "Order Ready",
-            "Order from ${order.buyerName} is $deliveryMessage",
-            orderId.hashCode()
-        )
-    }
-
-    // ==========================
-    //    UPDATE PRODUCT QUANTITY
-    // ==========================
-    private fun updateProductQuantities(orderItems: List<OrderItem>, sellerUid: String) {
-        for (item in orderItems) {
-            val qtyRef = db.child("Sellers").child(sellerUid)
-                .child("products").child(item.productID).child("quantity")
-
-            qtyRef.get().addOnSuccessListener { snap ->
-                val currentQty = snap.getValue(String::class.java)?.toIntOrNull() ?: 0
-                val newQty = (currentQty - item.quantity).coerceAtLeast(0)
-                qtyRef.setValue(newQty.toString())
+        db.child("Sellers").child(sellerUid).child("orders").child(orderId)
+            .child("status").setValue("READY")
+            .addOnSuccessListener {
+                // Optionally show a toast or update UI
             }
-        }
-    }
-
-    // ==========================
-    //    SHOW NOTIFICATION
-    // ==========================
-    private fun showNotification(context: Context, title: String, message: String, notificationId: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) return
-
-        val builder = NotificationCompat.Builder(context, "order_channel")
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-
-        val notificationManager = NotificationManagerCompat.from(context)
-        notificationManager.notify(notificationId, builder.build())
     }
 }

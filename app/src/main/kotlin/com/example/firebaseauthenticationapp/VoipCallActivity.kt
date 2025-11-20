@@ -1,13 +1,27 @@
 package com.example.firebaseauthenticationapp
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 
 class VoipCallActivity : AppCompatActivity() {
+
+    companion object {
+        // MUST match the buyer app constants
+        const val EXTRA_REMOTE_IP = "EXTRA_REMOTE_IP"
+        const val EXTRA_REMOTE_PORT = "EXTRA_REMOTE_PORT"
+        const val EXTRA_CALLEE_UID = "EXTRA_CALLEE_UID"
+
+        private const val REQ_RECORD_AUDIO = 200
+    }
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
     private val db: FirebaseDatabase by lazy { FirebaseDatabase.getInstance() }
@@ -16,7 +30,11 @@ class VoipCallActivity : AppCompatActivity() {
     private var callListener: ValueEventListener? = null
     private var callRef: DatabaseReference? = null
 
-    // XML Views (replacing binding)
+    // Audio engine
+    private var audioEngine: VoipAudioEngine? = null
+    private var pendingAudioParams: Pair<String, Int>? = null
+
+    // XML Views
     private lateinit var ivBack: ImageView
     private lateinit var btnStartCall: Button
     private lateinit var btnEndCall: Button
@@ -38,12 +56,26 @@ class VoipCallActivity : AppCompatActivity() {
         etPort = findViewById(R.id.etPort)
         tvCallStatus = findViewById(R.id.tvCallStatus)
 
+        // ----- Autofill from Intent extras -----
+        intent.getStringExtra(EXTRA_CALLEE_UID)?.let {
+            if (it.isNotBlank()) etCalleeUid.setText(it)
+        }
+        intent.getStringExtra(EXTRA_REMOTE_IP)?.let {
+            if (it.isNotBlank()) etIpAddress.setText(it)
+        }
+        val portExtra = intent.getIntExtra(EXTRA_REMOTE_PORT, 0)
+        if (portExtra > 0) {
+            etPort.setText(portExtra.toString())
+        }
+
         // Back button
         ivBack.setOnClickListener { finish() }
 
         btnStartCall.setOnClickListener { startCall() }
         btnEndCall.setOnClickListener { endCallWithConfirm() }
     }
+
+    // ---------------- VOIP SIGNALING ---------------- //
 
     private fun startCall() {
         val callerUid = auth.currentUser?.uid
@@ -67,6 +99,7 @@ class VoipCallActivity : AppCompatActivity() {
             return
         }
 
+        // If a previous call is active, end it first
         if (currentCallId != null) {
             Toast.makeText(this, "Ending previous call and starting a new one.", Toast.LENGTH_SHORT).show()
             endCall(false)
@@ -89,11 +122,20 @@ class VoipCallActivity : AppCompatActivity() {
         currentCallId = callId
         callRef = callsRef.child(callId)
 
-        callRef!!.setValue(voipCall)
+        callRef!!
+            .setValue(voipCall)
             .addOnSuccessListener {
                 tvCallStatus.text = "Status: INITIATED (waiting for other side)"
                 attachCallListener()
-                Toast.makeText(this, "Call created. Share the call ID or wait for callee to respond.", Toast.LENGTH_LONG).show()
+
+                // 🔊 Start audio once signaling is created
+                startAudio(ip, port)
+
+                Toast.makeText(
+                    this,
+                    "Call created. Other side must also start their audio.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
             .addOnFailureListener { e ->
                 currentCallId = null
@@ -102,6 +144,9 @@ class VoipCallActivity : AppCompatActivity() {
             }
     }
 
+    /**
+     * Listen for changes to this call's status in /VoipCalls/{callId}.
+     */
     private fun attachCallListener() {
         val ref = callRef ?: return
 
@@ -153,6 +198,10 @@ class VoipCallActivity : AppCompatActivity() {
             .show()
     }
 
+    /**
+     * End call, stop audio, and DELETE the signaling node
+     * so calls are NOT saved as history in the DB.
+     */
     private fun endCall(showToast: Boolean) {
         val ref = callRef
         val id = currentCallId
@@ -161,24 +210,108 @@ class VoipCallActivity : AppCompatActivity() {
             if (showToast) {
                 Toast.makeText(this, "No active call.", Toast.LENGTH_SHORT).show()
             }
+            stopAudio()
             return
         }
 
-        ref.child("status").setValue("ENDED")
-            .addOnCompleteListener {
-                if (showToast) {
-                    Toast.makeText(this, "Call ended.", Toast.LENGTH_SHORT).show()
-                }
+        // Stop audio first
+        stopAudio()
+
+        // Set status to ENDED then remove the node
+        ref.child("status").setValue("ENDED").addOnCompleteListener {
+            // Remove the call from DB entirely
+            ref.removeValue()
+            if (showToast) {
+                Toast.makeText(this, "Call ended.", Toast.LENGTH_SHORT).show()
             }
+        }
+
+        currentCallId = null
+        callRef = null
+    }
+
+    // ---------------- AUDIO PERMISSIONS + ENGINE ---------------- //
+
+    private fun hasRecordAudioPermission(): Boolean {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.RECORD_AUDIO
+            ) == PackageManager.PERMISSION_GRANTED
+        } else {
+            true
+        }
+    }
+
+    private fun requestRecordAudioPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.RECORD_AUDIO),
+                REQ_RECORD_AUDIO
+            )
+        }
+    }
+
+    private fun startAudio(remoteIp: String, port: Int) {
+        stopAudio() // clean previous
+
+        if (!hasRecordAudioPermission()) {
+            // Remember what we wanted to start, then ask for permission
+            pendingAudioParams = remoteIp to port
+            requestRecordAudioPermission()
+            return
+        }
+
+        audioEngine = VoipAudioEngine(
+            remoteIp = remoteIp,
+            remotePort = port,
+            localPort = port      // symmetric; both sides use same port
+        )
+
+        try {
+            audioEngine?.start()
+            tvCallStatus.text = "Status: CONNECTED (audio running)"
+        } catch (e: SecurityException) {
+            Toast.makeText(this, "Mic permission denied, cannot start audio.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun stopAudio() {
+        audioEngine?.stop()
+        audioEngine = null
+    }
+
+    // Handle permission result for RECORD_AUDIO
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == REQ_RECORD_AUDIO) {
+            if (grantResults.isNotEmpty() &&
+                grantResults[0] == PackageManager.PERMISSION_GRANTED
+            ) {
+                // Start audio with remembered params
+                pendingAudioParams?.let { (ip, port) ->
+                    pendingAudioParams = null
+                    startAudio(ip, port)
+                }
+            } else {
+                Toast.makeText(this, "Microphone permission denied.", Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-
+        // Clean up listener + audio
         callRef?.let { ref ->
             callListener?.let { listener ->
                 ref.removeEventListener(listener)
             }
         }
+        stopAudio()
     }
 }
