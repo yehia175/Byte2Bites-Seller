@@ -1,22 +1,16 @@
 package com.example.firebaseauthenticationapp
 
-import android.Manifest
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
+import android.content.Intent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
-import androidx.core.app.ActivityCompat
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.database.FirebaseDatabase
-import android.content.Intent
 
 class OrderAdapter(
     private var ordersList: MutableList<OrderDisplay>
@@ -26,6 +20,7 @@ class OrderAdapter(
 
     class OrderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val buyerName: TextView = itemView.findViewById(R.id.textBuyerName)
+        val deliveryTypeText: TextView = itemView.findViewById(R.id.textDeliveryType) // make sure to add this TextView in XML
         val itemsRecyclerView: RecyclerView = itemView.findViewById(R.id.recyclerItems)
         val btnAcceptOrder: Button = itemView.findViewById(R.id.btnAcceptOrder)
         val btnRejectOrder: Button = itemView.findViewById(R.id.btnRejectOrder)
@@ -41,16 +36,19 @@ class OrderAdapter(
 
     override fun onBindViewHolder(holder: OrderViewHolder, position: Int) {
         val order = ordersList[position]
+
+        // Buyer name
         holder.buyerName.text = "Order(Name: ${order.buyerName}):"
+
+        // Delivery type
+        holder.deliveryTypeText.text = "Type: ${order.deliveryType.uppercase()}"
 
         // Nested RecyclerView for order items
         holder.itemsRecyclerView.layoutManager = LinearLayoutManager(holder.itemView.context)
         holder.itemsRecyclerView.adapter = OrderItemAdapter(order.items)
         holder.itemsRecyclerView.isNestedScrollingEnabled = false
 
-        // ==========================
-        //        VOIP CALL
-        // ==========================
+        // VOIP Call button
         holder.btnCallVoip.setOnClickListener {
             val context = holder.itemView.context
             val intent = Intent(context, VoipCallActivity::class.java)
@@ -60,23 +58,36 @@ class OrderAdapter(
             context.startActivity(intent)
         }
 
-        // ==========================
-        //        ACCEPT ORDER
-        // ==========================
-        holder.btnAcceptOrder.setOnClickListener {
-            acceptOrder(order, holder, position)
+        // Accept Order button
+        if (orderStatusIsAccepted(order)) {
+            // If already accepted, show as disabled and styled
+            holder.btnAcceptOrder.isEnabled = false
+            holder.btnAcceptOrder.text = "Accepted"
+            holder.btnAcceptOrder.setBackgroundColor(holder.itemView.context.getColor(android.R.color.darker_gray))
+            holder.btnAcceptOrder.setTextColor(holder.itemView.context.getColor(android.R.color.white))
+        } else {
+            holder.btnAcceptOrder.isEnabled = true
+            holder.btnAcceptOrder.text = "Accept Order"
+            holder.btnAcceptOrder.setBackgroundColor(holder.itemView.context.getColor(android.R.color.holo_green_dark))
+            holder.btnAcceptOrder.setTextColor(holder.itemView.context.getColor(android.R.color.white))
         }
 
-        // ==========================
-        //       REJECT ORDER
-        // ==========================
+        holder.btnAcceptOrder.setOnClickListener {
+            acceptOrder(order, holder, position)
+
+            // Disable and change style after click
+            holder.btnAcceptOrder.isEnabled = false
+            holder.btnAcceptOrder.text = "Accepted"
+            holder.btnAcceptOrder.setBackgroundColor(holder.itemView.context.getColor(android.R.color.darker_gray))
+            holder.btnAcceptOrder.setTextColor(holder.itemView.context.getColor(android.R.color.white))
+        }
+
+        // Reject button
         holder.btnRejectOrder.setOnClickListener {
             rejectOrder(order, holder, position)
         }
 
-        // ==========================
-        //      FINISHED PREPARING
-        // ==========================
+        // Finished Preparing button
         holder.btnFinishedPreparing.setOnClickListener {
             finishPreparing(order, holder)
         }
@@ -90,7 +101,16 @@ class OrderAdapter(
     }
 
     // ==========================
-    //      ACCEPT ORDER LOGIC
+    // Helper to check if order is accepted
+    // ==========================
+    private fun orderStatusIsAccepted(order: OrderDisplay): Boolean {
+        // If you store order status in Firebase, you can check here.
+        // For now, assume "PREPARING" means accepted
+        return order.status == "PREPARING"
+    }
+
+    // ==========================
+    // ACCEPT ORDER
     // ==========================
     private fun acceptOrder(order: OrderDisplay, holder: OrderViewHolder, position: Int) {
         val orderId = order.orderId
@@ -136,19 +156,14 @@ class OrderAdapter(
                     updateProductQuantities(order.items, sellerUid)
 
                     // Notification
-                    showNotification(
-                        holder.itemView.context,
-                        "Order Accepted",
-                        "Order from ${order.buyerName} is now PREPARING",
-                        orderId.hashCode()
-                    )
+                    sendNotification(holder.itemView.context, "Order Accepted", "Order from ${order.buyerName} is now PREPARING", orderId.hashCode())
                 }
             }
         }
     }
 
     // ==========================
-    //      REJECT ORDER LOGIC
+    // REJECT ORDER
     // ==========================
     private fun rejectOrder(order: OrderDisplay, holder: OrderViewHolder, position: Int) {
         val orderId = order.orderId
@@ -162,44 +177,32 @@ class OrderAdapter(
         notifyItemRemoved(position)
         notifyItemRangeChanged(position, ordersList.size)
 
-        showNotification(
-            holder.itemView.context,
-            "Order Rejected",
-            "Order from ${order.buyerName} was rejected",
-            orderId.hashCode()
-        )
+        sendNotification(holder.itemView.context, "Order Rejected", "Order from ${order.buyerName} was rejected", orderId.hashCode())
     }
 
     // ==========================
-    //      FINISHED PREPARING LOGIC
+    // FINISHED PREPARING
     // ==========================
     private fun finishPreparing(order: OrderDisplay, holder: OrderViewHolder) {
         val orderId = order.orderId
         val sellerUid = order.sellerUid
         if (orderId.isEmpty() || sellerUid.isEmpty()) return
 
-        // Update status in Firebase
         db.child("Sellers").child(sellerUid).child("orders")
             .child(orderId).child("status")
             .setValue("READY")
 
-        // Notification message based on deliveryType
         val deliveryMessage = if (order.deliveryType.uppercase() == "DELIVERY") {
             "READY FOR DELIVERING"
         } else {
             "READY FOR PICKUP"
         }
 
-        showNotification(
-            holder.itemView.context,
-            "Order Ready",
-            "Order from ${order.buyerName} is $deliveryMessage",
-            orderId.hashCode()
-        )
+        sendNotification(holder.itemView.context, "Order Ready", "Order from ${order.buyerName} is $deliveryMessage", orderId.hashCode())
     }
 
     // ==========================
-    //    UPDATE PRODUCT QUANTITY
+    // UPDATE PRODUCT QUANTITY
     // ==========================
     private fun updateProductQuantities(orderItems: List<OrderItem>, sellerUid: String) {
         for (item in orderItems) {
@@ -215,21 +218,11 @@ class OrderAdapter(
     }
 
     // ==========================
-    //    SHOW NOTIFICATION
+    // SEND NOTIFICATION VIA ACTIVITY
     // ==========================
-    private fun showNotification(context: Context, title: String, message: String, notificationId: Int) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-            ActivityCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
-        ) return
-
-        val builder = NotificationCompat.Builder(context, "order_channel")
-            .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle(title)
-            .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-
-        val notificationManager = NotificationManagerCompat.from(context)
-        notificationManager.notify(notificationId, builder.build())
+    private fun sendNotification(context: Context, title: String, message: String, notificationId: Int) {
+        if (context is OrdersActivity) {
+            context.showOrderNotification(title, message, notificationId)
+        }
     }
 }

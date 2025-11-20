@@ -1,7 +1,16 @@
 package com.example.firebaseauthenticationapp
 
-import androidx.appcompat.app.AppCompatActivity
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.widget.ImageButton
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.firebase.auth.FirebaseAuth
@@ -20,14 +29,86 @@ class OrdersActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_orders)
 
+        // 🔙 Back Button
+        val backButton = findViewById<ImageButton>(R.id.backButton)
+        backButton.setOnClickListener { finish() }
+
+        // RecyclerView setup
         ordersRecyclerView = findViewById(R.id.ordersRecyclerView)
         ordersRecyclerView.layoutManager = LinearLayoutManager(this)
         orderAdapter = OrderAdapter(ordersList)
         ordersRecyclerView.adapter = orderAdapter
 
+        // Create Notification Channel
+        createNotificationChannel()
+
+        // Request Notification Permission for Android 13+
+        requestNotificationPermission()
+
+        // Fetch orders
         fetchOrders()
     }
 
+    // =========================
+    // Notification Channel
+    // =========================
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val channel = NotificationChannel(
+                "order_channel",
+                "Order Notifications",
+                NotificationManager.IMPORTANCE_HIGH
+            )
+            channel.description = "Notifications for new or updated orders"
+            val manager = getSystemService(NotificationManager::class.java)
+            manager?.createNotificationChannel(channel)
+        }
+    }
+
+    // =========================
+    // Request permission Android 13+
+    // =========================
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ActivityCompat.checkSelfPermission(
+                    this,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    101
+                )
+            }
+        }
+    }
+
+    // =========================
+    // Show Notification Helper
+    // =========================
+    fun showOrderNotification(title: String, message: String, notificationId: Int) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) return
+
+        val builder = NotificationCompat.Builder(this, "order_channel")
+            .setSmallIcon(R.drawable.ic_notification) // Your notification icon
+            .setContentTitle(title)
+            .setContentText(message)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+
+        val notificationManager = NotificationManagerCompat.from(this)
+        notificationManager.notify(notificationId, builder.build())
+    }
+
+    // =========================
+    // Fetch orders from Firebase
+    // =========================
     private fun fetchOrders() {
         val sellerUid = auth.currentUser?.uid ?: return
         val ordersRef = db.child("Sellers").child(sellerUid).child("orders")
@@ -38,32 +119,31 @@ class OrdersActivity : AppCompatActivity() {
 
                 for (orderSnap in snapshot.children) {
                     val orderId = orderSnap.key ?: continue
-                    val buyerUid = orderSnap.child("buyerUid").value?.toString() ?: continue
+                    val buyerUid = orderSnap.child("buyerUid").getValue(String::class.java) ?: continue
                     val itemsSnap = orderSnap.child("items")
                     if (!itemsSnap.exists()) continue
 
-                    // Fetch buyer name first
+                    // Fetch buyer name
                     fetchBuyerName(buyerUid) { buyerName ->
-
                         val itemList = mutableListOf<OrderItem>()
                         for (itemSnap in itemsSnap.children) {
-                            val name = itemSnap.child("name").value?.toString() ?: ""
-                            val quantity = itemSnap.child("quantity").value?.toString()?.toIntOrNull() ?: 0
-                            val productId = itemSnap.child("productID").value?.toString() ?: ""
-
+                            val name = itemSnap.child("name").getValue(String::class.java) ?: ""
+                            val quantity = itemSnap.child("quantity").getValue(Int::class.java) ?: 0
+                            val productId = itemSnap.child("productID").getValue(String::class.java) ?: ""
                             itemList.add(OrderItem(productId, name, quantity))
                         }
 
-
-                        // Create a single OrderDisplay per order with orderId and sellerUid
                         val orderDisplay = OrderDisplay(
                             orderId = orderId,
                             sellerUid = sellerUid,
                             buyerName = buyerName,
-                            items = itemList
+                            items = itemList,
+                            buyerUid = buyerUid,
+                            deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
                         )
 
-                        ordersList.add(orderDisplay)
+                        // Insert at start of list so newest appear on top
+                        ordersList.add(0, orderDisplay)
                         orderAdapter.updateList(ordersList)
                     }
                 }
@@ -73,6 +153,9 @@ class OrdersActivity : AppCompatActivity() {
         })
     }
 
+    // =========================
+    // Fetch Buyer Name
+    // =========================
     private fun fetchBuyerName(uid: String, callback: (String) -> Unit) {
         db.child("Buyers").child(uid)
             .addListenerForSingleValueEvent(object : ValueEventListener {
