@@ -188,15 +188,15 @@ class OrderAdapter(
         val sellerUid = order.sellerUid
         if (orderId.isEmpty() || sellerUid.isEmpty()) return
 
-        db.child("Sellers").child(sellerUid).child("orders")
-            .child(orderId).child("status")
-            .setValue("READY")
-
         val deliveryMessage = if (order.deliveryType.uppercase() == "DELIVERY") {
             "READY FOR DELIVERING"
         } else {
             "READY FOR PICKUP"
         }
+
+        db.child("Sellers").child(sellerUid).child("orders")
+            .child(orderId).child("status")
+            .setValue(deliveryMessage)
 
         sendNotification(holder.itemView.context, "Order Ready", "Order from ${order.buyerName} is $deliveryMessage", orderId.hashCode())
     }
