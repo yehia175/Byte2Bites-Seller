@@ -6,5 +6,6 @@ data class OrderDisplay(
     val buyerUid: String = "",      // Buyer UID
     val buyerName: String = "",
     val items: List<OrderItem> = emptyList(),
-    val deliveryType: String = ""   // <-- Add this
+    val deliveryType: String = "" ,  // <-- Add this
+    val status: String = "PENDING" // default status
 )
