@@ -96,7 +96,7 @@ class OrdersActivity : AppCompatActivity() {
         ) return
 
         val builder = NotificationCompat.Builder(this, "order_channel")
-            .setSmallIcon(R.drawable.ic_notification) // Your notification icon
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
@@ -118,6 +118,14 @@ class OrdersActivity : AppCompatActivity() {
                 ordersList.clear()
 
                 for (orderSnap in snapshot.children) {
+
+                    // ================================
+                    // 🚨 SKIP REJECTED ORDERS COMPLETELY
+                    // ================================
+                    val status = orderSnap.child("status").getValue(String::class.java) ?: ""
+                    if (status.uppercase() == "REJECTED") continue
+                    // ================================
+
                     val orderId = orderSnap.key ?: continue
                     val buyerUid = orderSnap.child("buyerUid").getValue(String::class.java) ?: continue
                     val itemsSnap = orderSnap.child("items")
@@ -142,7 +150,7 @@ class OrdersActivity : AppCompatActivity() {
                             deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
                         )
 
-                        // Insert at start of list so newest appear on top
+                        // Insert at start
                         ordersList.add(0, orderDisplay)
                         orderAdapter.updateList(ordersList)
                     }
