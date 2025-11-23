@@ -17,12 +17,13 @@ class OrderAdapter(
 ) : RecyclerView.Adapter<OrderAdapter.OrderViewHolder>() {
 
     private val db = FirebaseDatabase.getInstance().reference
-
     private val PREF_NAME = "accepted_orders_pref"
 
     class OrderViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         val buyerName: TextView = itemView.findViewById(R.id.textBuyerName)
         val deliveryTypeText: TextView = itemView.findViewById(R.id.textDeliveryType)
+        val deliveryPriceText: TextView = itemView.findViewById(R.id.textDeliveryPrice)
+        val totalPriceText: TextView = itemView.findViewById(R.id.textTotalPrice)
         val itemsRecyclerView: RecyclerView = itemView.findViewById(R.id.recyclerItems)
         val btnAcceptOrder: Button = itemView.findViewById(R.id.btnAcceptOrder)
         val btnRejectOrder: Button = itemView.findViewById(R.id.btnRejectOrder)
@@ -40,111 +41,77 @@ class OrderAdapter(
         val order = ordersList[position]
         val context = holder.itemView.context
 
+        // Display buyer info
         holder.buyerName.text = "Order (Name: ${order.buyerName}):"
         holder.deliveryTypeText.text = "Type: ${order.deliveryType.uppercase()}"
 
+        // Display items in nested RecyclerView
         holder.itemsRecyclerView.layoutManager = LinearLayoutManager(context)
         holder.itemsRecyclerView.adapter = OrderItemAdapter(order.items)
         holder.itemsRecyclerView.isNestedScrollingEnabled = false
 
+        // Calculate total prices
+        val itemsTotal = order.items.sumOf { (it.price.toDoubleOrNull() ?: 0.0) * it.quantity }
+        val deliveryFee = (order.deliveryFeeCents ?: 0) / 100.0
+        val totalPrice = itemsTotal + deliveryFee
+
+        holder.deliveryPriceText.text = "Delivery: ${"%.2f".format(deliveryFee)} EGP"
+        holder.totalPriceText.text = "Total: ${"%.2f".format(totalPrice)} EGP"
+
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-
-        // ==========================
-        //     LOAD ACCEPT STATE
-        // ==========================
         val isAccepted = prefs.getBoolean("accepted_${order.orderId}", false)
-        if (isAccepted) {
-            holder.btnAcceptOrder.isEnabled = false
-            holder.btnAcceptOrder.text = "Accepted"
-            holder.btnAcceptOrder.setBackgroundColor(context.getColor(android.R.color.darker_gray))
-            holder.btnAcceptOrder.setTextColor(context.getColor(android.R.color.white))
-
-            holder.btnRejectOrder.isEnabled = false
-            holder.btnRejectOrder.setBackgroundColor(context.getColor(android.R.color.darker_gray))
-            holder.btnRejectOrder.setTextColor(context.getColor(android.R.color.white))
-        } else {
-            holder.btnAcceptOrder.isEnabled = true
-            holder.btnAcceptOrder.text = "Accept Order"
-            holder.btnAcceptOrder.setBackgroundColor(context.getColor(android.R.color.holo_green_dark))
-            holder.btnAcceptOrder.setTextColor(context.getColor(android.R.color.white))
-
-            holder.btnRejectOrder.isEnabled = true
-            holder.btnRejectOrder.setBackgroundColor(context.getColor(android.R.color.holo_red_dark))
-            holder.btnRejectOrder.setTextColor(context.getColor(android.R.color.white))
-        }
-
-        // ==========================
-        //   LOAD COMPLETED STATE
-        // ==========================
         val isCompleted = prefs.getBoolean("completed_${order.orderId}", false)
-        if (isCompleted) {
-            holder.btnFinishedPreparing.isEnabled = false
-            holder.btnFinishedPreparing.text = "Done"
-            holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
-            holder.btnFinishedPreparing.setTextColor(context.getColor(android.R.color.white))
-        } else {
-            holder.btnFinishedPreparing.isEnabled = true
-            holder.btnFinishedPreparing.text = "Order Ready"
-            holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.holo_blue_dark))
-            holder.btnFinishedPreparing.setTextColor(context.getColor(android.R.color.white))
+
+        // Configure buttons state
+        holder.btnAcceptOrder.apply {
+            isEnabled = !isAccepted
+            text = if (isAccepted) "Accepted" else "Accept Order"
+            setBackgroundColor(context.getColor(if (isAccepted) android.R.color.darker_gray else android.R.color.holo_green_dark))
         }
 
-        // ==========================
-        //       ACCEPT ORDER
-        // ==========================
+        holder.btnRejectOrder.apply {
+            isEnabled = !isAccepted
+            setBackgroundColor(context.getColor(if (isAccepted) android.R.color.darker_gray else android.R.color.holo_red_dark))
+        }
+
+        holder.btnFinishedPreparing.apply {
+            isEnabled = !isCompleted
+            text = if (isCompleted) "Done" else "Order Ready"
+            setBackgroundColor(context.getColor(if (isCompleted) android.R.color.darker_gray else android.R.color.holo_blue_dark))
+        }
+
+        // Accept order click
         holder.btnAcceptOrder.setOnClickListener {
-            checkAndAcceptOrder(order, holder, prefs)
+            acceptOrder(order, holder, prefs)
         }
 
-        // ==========================
-        //     FINISHED PREPARING
-        // ==========================
+        // Finish preparing click
         holder.btnFinishedPreparing.setOnClickListener {
-            val isCurrentlyAccepted = prefs.getBoolean("accepted_${order.orderId}", false)
-            if (!isCurrentlyAccepted) {
+            if (!prefs.getBoolean("accepted_${order.orderId}", false)) {
                 AlertDialog.Builder(context)
                     .setTitle("Action not allowed")
-                    .setMessage("You can't finish preparing an order that isn't accepted yet")
+                    .setMessage("You can't finish an order that isn't accepted yet")
                     .setPositiveButton("OK", null)
                     .show()
                 return@setOnClickListener
             }
-
-            finishPreparing(order, holder)
-            prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
-
-            holder.btnFinishedPreparing.isEnabled = false
-            holder.btnFinishedPreparing.text = "Done"
-            holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
-            holder.btnFinishedPreparing.setTextColor(context.getColor(android.R.color.white))
+            finishPreparing(order, holder, prefs)
         }
 
-        // ==========================
-        //      REJECT ORDER
-        // ==========================
+        // Reject order click
         holder.btnRejectOrder.setOnClickListener {
             ordersList.removeAt(position)
             notifyItemRemoved(position)
             notifyItemRangeChanged(position, ordersList.size)
 
-            val orderId = order.orderId
-            val sellerUid = order.sellerUid
-            if (orderId.isNotEmpty() && sellerUid.isNotEmpty()) {
-                db.child("Sellers").child(sellerUid).child("orders")
-                    .child(orderId).child("status").setValue("REJECTED")
-            }
+            db.child("Sellers").child(order.sellerUid)
+                .child("orders").child(order.orderId)
+                .child("status").setValue("REJECTED")
 
-            sendNotification(
-                context,
-                "Order Rejected",
-                "Order from ${order.buyerName} was rejected",
-                order.orderId.hashCode()
-            )
+            sendNotification(context, "Order Rejected", "Order from ${order.buyerName} was rejected", order.orderId.hashCode())
         }
 
-        // ==========================
-        //         VOIP CALL
-        // ==========================
+        // VOIP call
         holder.btnCallVoip.setOnClickListener {
             val intent = Intent(context, VoipCallActivity::class.java).apply {
                 putExtra(VoipCallActivity.EXTRA_CALLEE_UID, order.buyerUid)
@@ -162,125 +129,61 @@ class OrderAdapter(
         notifyDataSetChanged()
     }
 
-    // ==========================
-    // CHECK STOCK AND ACCEPT
-    // ==========================
-    private fun checkAndAcceptOrder(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
-        val orderId = order.orderId
+    private fun acceptOrder(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
-        if (orderId.isEmpty() || sellerUid.isEmpty()) return
-
-        var checksDone = 0
+        val orderId = order.orderId
         val insufficientItems = mutableListOf<String>()
+        var checksDone = 0
 
         for (item in order.items) {
-            val productRef = db.child("Sellers")
-                .child(sellerUid)
-                .child("products")
-                .child(item.productID)
-
+            val productRef = db.child("Sellers").child(sellerUid).child("products").child(item.productID)
             productRef.get().addOnSuccessListener { snap ->
-                val currentQty =
-                    snap.child("quantity").getValue(String::class.java)?.toIntOrNull() ?: 0
-
-                if (currentQty - item.quantity < 0) {
+                val currentQty = snap.child("quantity").getValue(String::class.java)?.toIntOrNull() ?: 0
+                if (currentQty < item.quantity) {
                     insufficientItems.add("${item.name} (Stock: $currentQty)")
                 }
 
                 checksDone++
                 if (checksDone == order.items.size) {
                     if (insufficientItems.isNotEmpty()) {
-                        // ALERT only, do NOT change buttons or SharedPreferences
                         AlertDialog.Builder(holder.itemView.context)
                             .setTitle("Cannot Accept Order")
-                            .setMessage(
-                                "Insufficient stock for:\n" +
-                                        insufficientItems.joinToString("\n")
-                            )
+                            .setMessage("Insufficient stock for:\n${insufficientItems.joinToString("\n")}")
                             .setPositiveButton("OK", null)
                             .show()
                         return@addOnSuccessListener
                     }
 
-                    // Stock sufficient → proceed as normal
-                    db.child("Sellers").child(sellerUid).child("orders")
-                        .child(orderId).child("status").setValue("PREPARING")
-
-                    updateProductQuantities(order.items, sellerUid)
-
-                    prefs.edit().putBoolean("accepted_${order.orderId}", true).apply()
+                    db.child("Sellers").child(sellerUid).child("orders").child(orderId).child("status").setValue("PREPARING")
+                    prefs.edit().putBoolean("accepted_${orderId}", true).apply()
 
                     holder.btnAcceptOrder.isEnabled = false
                     holder.btnAcceptOrder.text = "Accepted"
-                    holder.btnAcceptOrder.setBackgroundColor(holder.itemView.context.getColor(android.R.color.darker_gray))
-                    holder.btnAcceptOrder.setTextColor(holder.itemView.context.getColor(android.R.color.white))
-
                     holder.btnRejectOrder.isEnabled = false
                     holder.btnRejectOrder.setBackgroundColor(holder.itemView.context.getColor(android.R.color.darker_gray))
-                    holder.btnRejectOrder.setTextColor(holder.itemView.context.getColor(android.R.color.white))
 
-                    sendNotification(
-                        holder.itemView.context,
-                        "Order Accepted",
-                        "Order from ${order.buyerName} is now PREPARING",
-                        orderId.hashCode()
-                    )
+                    sendNotification(holder.itemView.context, "Order Accepted", "Order from ${order.buyerName} is now PREPARING", orderId.hashCode())
                 }
             }
         }
     }
 
-    // ==========================
-    //    FINISHED PREPARING
-    // ==========================
-    private fun finishPreparing(order: OrderDisplay, holder: OrderViewHolder) {
-        val orderId = order.orderId
+    private fun finishPreparing(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
-        if (orderId.isEmpty()) return
+        val orderId = order.orderId
+        val newStatus = if (order.deliveryType.uppercase() == "DELIVERY") "READY FOR DELIVERING" else "READY FOR PICKUP"
 
-        val newStatus = if (order.deliveryType.uppercase() == "DELIVERY")
-            "READY FOR DELIVERING"
-        else
-            "READY FOR PICKUP"
+        db.child("Sellers").child(sellerUid).child("orders").child(orderId).child("status").setValue(newStatus)
+        prefs.edit().putBoolean("completed_${orderId}", true).apply()
 
-        db.child("Sellers").child(sellerUid).child("orders")
-            .child(orderId).child("status").setValue(newStatus)
+        holder.btnFinishedPreparing.isEnabled = false
+        holder.btnFinishedPreparing.text = "Done"
+        holder.btnFinishedPreparing.setBackgroundColor(holder.itemView.context.getColor(android.R.color.darker_gray))
 
-        sendNotification(
-            holder.itemView.context,
-            "Order Ready",
-            "Order from ${order.buyerName} is $newStatus",
-            orderId.hashCode()
-        )
+        sendNotification(holder.itemView.context, "Order Ready", "Order from ${order.buyerName} is $newStatus", orderId.hashCode())
     }
 
-    // ==========================
-    //   UPDATE PRODUCT STOCK
-    // ==========================
-    private fun updateProductQuantities(orderItems: List<OrderItem>, sellerUid: String) {
-        for (item in orderItems) {
-            val qtyRef = db.child("Sellers").child(sellerUid)
-                .child("products")
-                .child(item.productID)
-                .child("quantity")
-
-            qtyRef.get().addOnSuccessListener { snap ->
-                val currentQty = snap.getValue(String::class.java)?.toIntOrNull() ?: 0
-                val newQty = (currentQty - item.quantity).coerceAtLeast(0)
-                qtyRef.setValue(newQty.toString())
-            }
-        }
-    }
-
-    // ==========================
-    //    SEND NOTIFICATION
-    // ==========================
-    private fun sendNotification(
-        context: Context,
-        title: String,
-        message: String,
-        notificationId: Int
-    ) {
+    private fun sendNotification(context: Context, title: String, message: String, notificationId: Int) {
         if (context is OrdersActivity) {
             context.showOrderNotification(title, message, notificationId)
         }

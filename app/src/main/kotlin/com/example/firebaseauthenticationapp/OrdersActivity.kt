@@ -29,29 +29,19 @@ class OrdersActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_orders)
 
-        // 🔙 Back Button
         val backButton = findViewById<ImageButton>(R.id.backButton)
         backButton.setOnClickListener { finish() }
 
-        // RecyclerView setup
         ordersRecyclerView = findViewById(R.id.ordersRecyclerView)
         ordersRecyclerView.layoutManager = LinearLayoutManager(this)
         orderAdapter = OrderAdapter(ordersList)
         ordersRecyclerView.adapter = orderAdapter
 
-        // Create Notification Channel
         createNotificationChannel()
-
-        // Request Notification Permission for Android 13+
         requestNotificationPermission()
-
-        // Fetch orders
         fetchOrders()
     }
 
-    // =========================
-    // Notification Channel
-    // =========================
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
@@ -65,9 +55,6 @@ class OrdersActivity : AppCompatActivity() {
         }
     }
 
-    // =========================
-    // Request permission Android 13+
-    // =========================
     private fun requestNotificationPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ActivityCompat.checkSelfPermission(
@@ -84,9 +71,6 @@ class OrdersActivity : AppCompatActivity() {
         }
     }
 
-    // =========================
-    // Show Notification Helper
-    // =========================
     fun showOrderNotification(title: String, message: String, notificationId: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(
@@ -106,9 +90,6 @@ class OrdersActivity : AppCompatActivity() {
         notificationManager.notify(notificationId, builder.build())
     }
 
-    // =========================
-    // Fetch orders from Firebase
-    // =========================
     private fun fetchOrders() {
         val sellerUid = auth.currentUser?.uid ?: return
         val ordersRef = db.child("Sellers").child(sellerUid).child("orders")
@@ -116,29 +97,28 @@ class OrdersActivity : AppCompatActivity() {
         ordersRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 ordersList.clear()
-
                 for (orderSnap in snapshot.children) {
-
-                    // ================================
-                    // 🚨 SKIP REJECTED ORDERS COMPLETELY
-                    // ================================
                     val status = orderSnap.child("status").getValue(String::class.java) ?: ""
                     if (status.uppercase() == "REJECTED") continue
-                    // ================================
 
                     val orderId = orderSnap.key ?: continue
                     val buyerUid = orderSnap.child("buyerUid").getValue(String::class.java) ?: continue
                     val itemsSnap = orderSnap.child("items")
                     if (!itemsSnap.exists()) continue
 
-                    // Fetch buyer name
+                    // Fetch deliveryFeeCents like deliveryType
+                    val deliveryFeeCents = orderSnap.child("deliveryFeeCents").getValue(Int::class.java) ?: 0
+                    val deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
+
                     fetchBuyerName(buyerUid) { buyerName ->
                         val itemList = mutableListOf<OrderItem>()
                         for (itemSnap in itemsSnap.children) {
                             val name = itemSnap.child("name").getValue(String::class.java) ?: ""
                             val quantity = itemSnap.child("quantity").getValue(Int::class.java) ?: 0
                             val productId = itemSnap.child("productID").getValue(String::class.java) ?: ""
-                            itemList.add(OrderItem(productId, name, quantity))
+                            val price = itemSnap.child("price").getValue(String::class.java) ?: "0"
+
+                            itemList.add(OrderItem(productId, name, quantity, price))
                         }
 
                         val orderDisplay = OrderDisplay(
@@ -147,10 +127,10 @@ class OrdersActivity : AppCompatActivity() {
                             buyerName = buyerName,
                             items = itemList,
                             buyerUid = buyerUid,
-                            deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
+                            deliveryType = deliveryType,
+                            deliveryFeeCents = deliveryFeeCents
                         )
 
-                        // Insert at start
                         ordersList.add(0, orderDisplay)
                         orderAdapter.updateList(ordersList)
                     }
@@ -161,9 +141,7 @@ class OrdersActivity : AppCompatActivity() {
         })
     }
 
-    // =========================
-    // Fetch Buyer Name
-    // =========================
+
     private fun fetchBuyerName(uid: String, callback: (String) -> Unit) {
         db.child("Buyers").child(uid)
             .addListenerForSingleValueEvent(object : ValueEventListener {
