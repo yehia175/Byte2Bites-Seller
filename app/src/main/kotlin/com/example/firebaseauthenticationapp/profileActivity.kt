@@ -47,9 +47,9 @@ class profileActivity : AppCompatActivity() {
     private var address: String? = null
 
     // AWS CONFIGURATION
-    private val ACCESS_KEY = "AKIA6GUTHW7WWVAJSLK4"
-    private val SECRET_KEY = "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"
-    private val BUCKET_NAME = "bitesbkt"
+    private val ACCESS_KEY = ""
+    private val SECRET_KEY = ""
+    private val BUCKET_NAME = ""
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
