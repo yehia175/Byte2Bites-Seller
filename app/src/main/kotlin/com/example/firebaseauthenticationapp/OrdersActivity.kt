@@ -3,6 +3,7 @@ package com.example.firebaseauthenticationapp
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -29,9 +30,16 @@ class OrdersActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_orders)
 
-        val backButton = findViewById<ImageButton>(R.id.backButton)
-        backButton.setOnClickListener { finish() }
+        // Home button functionality
+        val homeButton = findViewById<ImageButton>(R.id.backButton) // your button ID
+        homeButton.setOnClickListener {
+            val intent = Intent(this, HomeActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finish() // optional: closes OrdersActivity
+        }
 
+        // RecyclerView setup
         ordersRecyclerView = findViewById(R.id.ordersRecyclerView)
         ordersRecyclerView.layoutManager = LinearLayoutManager(this)
         orderAdapter = OrderAdapter(ordersList)
@@ -106,7 +114,6 @@ class OrdersActivity : AppCompatActivity() {
                     val itemsSnap = orderSnap.child("items")
                     if (!itemsSnap.exists()) continue
 
-                    // Fetch deliveryFeeCents like deliveryType
                     val deliveryFeeCents = orderSnap.child("deliveryFeeCents").getValue(Int::class.java) ?: 0
                     val deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
 
@@ -140,7 +147,6 @@ class OrdersActivity : AppCompatActivity() {
             override fun onCancelled(error: DatabaseError) {}
         })
     }
-
 
     private fun fetchBuyerName(uid: String, callback: (String) -> Unit) {
         db.child("Buyers").child(uid)

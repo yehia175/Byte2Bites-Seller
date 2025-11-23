@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
@@ -16,75 +17,129 @@
             android:layout_width="48dp"
             android:layout_height="48dp"
             android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            app:tint="#424242"
             android:src="@android:drawable/ic_menu_revert"
-            android:contentDescription="Back" />
+            android:layout_marginBottom="12dp"/>
 
         <!-- Product Image -->
         <ImageView
             android:id="@+id/editProductImage"
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:layout_marginTop="16dp"
-            android:background="#CCCCCC"
+            android:layout_height="220dp"
+            android:layout_marginTop="8dp"
+            android:background="#EEEEEE"
             android:scaleType="centerCrop"
-            android:contentDescription="Product Image" />
+            android:contentDescription="Product Image"
+            android:padding="4dp"
+            android:clipToOutline="true" />
 
-        <!-- Product Name -->
+        <!-- Product Name Label -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Product Name"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="20dp"/>
+
+        <!-- Product Name Input -->
         <EditText
             android:id="@+id/editProductName"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Product Name"
-            android:padding="12dp"
+            android:hint="Enter product name"
+            android:padding="14dp"
             android:background="@android:color/white"
-            android:textColor="#000000" />
+            android:elevation="2dp"
+            android:textColor="#000000"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="#BDBDBD"/>
 
-        <!-- Product Description -->
+        <!-- Product Description Label -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Description"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"/>
+
+        <!-- Product Description Input -->
         <EditText
             android:id="@+id/editProductDescription"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Product Description"
-            android:padding="12dp"
+            android:hint="Enter product description"
+            android:padding="14dp"
             android:background="@android:color/white"
-            android:textColor="#000000" />
+            android:elevation="2dp"
+            android:textColor="#000000"
+            android:textSize="15sp"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="#BDBDBD"/>
 
-        <!-- Product Price -->
+        <!-- Product Price Label -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Price"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"/>
+
+        <!-- Price Input -->
         <EditText
             android:id="@+id/editProductPrice"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Product Price"
-            android:padding="12dp"
+            android:hint="Enter product price"
+            android:padding="14dp"
             android:background="@android:color/white"
+            android:elevation="2dp"
             android:textColor="#000000"
-            android:inputType="numberDecimal" />
+            android:textSize="15sp"
+            android:inputType="numberDecimal"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="#BDBDBD"/>
 
-        <!-- Product Quantity -->
+        <!-- Product Quantity Label -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Quantity"
+            android:textStyle="bold"
+            android:textSize="16sp"
+            android:layout_marginTop="16dp"/>
+
+        <!-- Quantity Input -->
         <EditText
             android:id="@+id/editProductQuantity"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:hint="Product Quantity"
-            android:padding="12dp"
+            android:hint="Enter quantity"
+            android:padding="14dp"
             android:background="@android:color/white"
+            android:elevation="2dp"
             android:textColor="#000000"
-            android:inputType="number" />
+            android:textSize="15sp"
+            android:inputType="number"
+            android:layout_marginTop="6dp"
+            android:backgroundTint="#BDBDBD"/>
 
         <!-- Save Button -->
         <Button
             android:id="@+id/saveProductButton"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:text="Save"
+            android:layout_marginTop="26dp"
+            android:text="Save Product"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:backgroundTint="#64B5F6" />
+            android:backgroundTint="#42A5F5"
+            android:padding="14dp"
+            android:elevation="3dp" />
 
     </LinearLayout>
 </ScrollView>

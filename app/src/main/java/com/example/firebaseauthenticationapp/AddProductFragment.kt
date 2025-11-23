@@ -30,7 +30,7 @@ class AddProductFragment : Fragment() {
     private lateinit var editTextPrice: EditText
     private lateinit var editTextQuantity: EditText
     private lateinit var buttonUpload: Button
-    private lateinit var backButton: ImageButton
+    private lateinit var homeButton: ImageButton
     private var selectedImageUri: Uri? = null
 
     private val PICK_IMAGE_REQUEST = 100
@@ -56,12 +56,13 @@ class AddProductFragment : Fragment() {
         editTextPrice = view.findViewById(R.id.editTextProductPrice)
         editTextQuantity = view.findViewById(R.id.editTextProductQuantity)
         buttonUpload = view.findViewById(R.id.buttonUploadProduct)
-        backButton = view.findViewById(R.id.backButton)
+        homeButton = view.findViewById(R.id.homeButton)
 
         buttonSelectImage.setOnClickListener { pickImageFromGallery() }
         buttonUpload.setOnClickListener { uploadProduct() }
 
-        backButton.setOnClickListener {
+        // ✅ Home button replaces back button functionality
+        homeButton.setOnClickListener {
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, ProductFragment())
                 .commit()
@@ -147,7 +148,7 @@ class AddProductFragment : Fragment() {
                             callback(imageUrl)
                             tempFile.delete()
                             buttonUpload.isEnabled = true
-                            buttonUpload.text = "Upload Product"
+                            buttonUpload.text = "Add Product"
                         }
                     }
 
@@ -156,7 +157,7 @@ class AddProductFragment : Fragment() {
                             Toast.makeText(context, "Image upload failed", Toast.LENGTH_SHORT).show()
                             tempFile.delete()
                             buttonUpload.isEnabled = true
-                            buttonUpload.text = "Upload Product"
+                            buttonUpload.text = "Add Product"
                         }
                     }
 
@@ -176,7 +177,7 @@ class AddProductFragment : Fragment() {
                     Toast.makeText(context, "Error: ${ex?.message}", Toast.LENGTH_SHORT).show()
                     tempFile.delete()
                     buttonUpload.isEnabled = true
-                    buttonUpload.text = "Upload Product"
+                    buttonUpload.text = "Add Product"
                 }
             }
         })

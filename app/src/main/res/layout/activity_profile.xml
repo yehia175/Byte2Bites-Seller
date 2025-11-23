@@ -1,36 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#1E3C72"
+    android:background="#E3F2FD"
     android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp"
+        android:padding="20dp"
         android:gravity="center_horizontal">
 
-        <!-- Back Button -->
-        <ImageButton
-            android:id="@+id/backButton"
-            android:layout_width="60dp"
-            android:layout_height="60dp"
-            android:layout_gravity="start"
-            android:layout_marginBottom="16dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:src="@android:drawable/ic_menu_revert"
-            android:contentDescription="Back" />
+        <!-- HOME BUTTON ROW -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="start"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp">
+
+            <ImageButton
+                android:id="@+id/backButton"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Home"
+                android:src="@drawable/ic_home"
+                android:tint="#424242" />
+        </LinearLayout>
 
         <!-- Title -->
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="My Profile"
-            android:textSize="28sp"
+            android:textSize="26sp"
             android:textStyle="bold"
-            android:textColor="@android:color/white"
+            android:textColor="#1A237E"
             android:layout_marginBottom="24dp" />
 
         <!-- Profile Image -->
@@ -40,20 +49,44 @@
             android:layout_height="150dp"
             android:layout_marginBottom="24dp"
             android:scaleType="centerCrop"
-            android:contentDescription="Profile Image" />
+            android:background="#CFD8DC"
+            android:contentDescription="Profile Image"
+            android:clipToOutline="true" />
+
+        <!-- Name Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Name"
+            android:textStyle="bold"
+            android:textColor="#1A237E"
+            android:layout_marginBottom="6dp"
+            android:textSize="15sp" />
 
         <!-- Name Field -->
         <EditText
             android:id="@+id/nameField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Name"
-            android:padding="12dp"
+            android:hint="Enter your name"
+            android:padding="14dp"
             android:background="@android:color/white"
+            android:elevation="2dp"
+            android:backgroundTint="#BDBDBD"
             android:textColor="#000000"
             android:textColorHint="#666666"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="18dp"
             android:inputType="textPersonName" />
+
+        <!-- Email Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Email"
+            android:textStyle="bold"
+            android:textColor="#1A237E"
+            android:layout_marginBottom="6dp"
+            android:textSize="15sp" />
 
         <!-- Email Field -->
         <EditText
@@ -61,42 +94,66 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:hint="Email"
-            android:padding="12dp"
-            android:background="#E3F2FD"
+            android:padding="14dp"
+            android:background="@android:color/white"
+            android:elevation="2dp"
+            android:backgroundTint="#BDBDBD"
             android:textColor="#000000"
             android:textColorHint="#666666"
             android:enabled="false"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="18dp"
             android:inputType="textEmailAddress" />
+
+        <!-- Phone Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Phone"
+            android:textStyle="bold"
+            android:textColor="#1A237E"
+            android:layout_marginBottom="6dp"
+            android:textSize="15sp" />
 
         <!-- Phone Field -->
         <EditText
             android:id="@+id/phoneField"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Phone"
-            android:padding="12dp"
+            android:hint="Enter phone number"
+            android:padding="14dp"
             android:background="@android:color/white"
+            android:elevation="2dp"
+            android:backgroundTint="#BDBDBD"
             android:textColor="#000000"
             android:textColorHint="#666666"
-            android:layout_marginBottom="16dp"
+            android:layout_marginBottom="22dp"
             android:inputType="number" />
 
-        <!-- ⭐ Restaurant Location Section -->
+        <!-- Location Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Restaurant Location"
+            android:textStyle="bold"
+            android:textColor="#1A237E"
+            android:textSize="15sp"
+            android:layout_marginBottom="6dp" />
+
+        <!-- Location Display (NOT clickable) -->
         <TextView
             android:id="@+id/locationText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Tap to set location"
-            android:textColor="@android:color/white"
-            android:textSize="16sp"
-            android:padding="12dp"
+            android:textColor="#000000"
+            android:textSize="15sp"
+            android:padding="14dp"
             android:layout_marginBottom="12dp"
-            android:background="#243B80"
-            android:clickable="true"
-            android:focusable="true" />
+            android:background="@android:color/white"
+            android:elevation="2dp"
+            android:backgroundTint="#BDBDBD" />
 
-
+        <!-- Set Location Button -->
         <Button
             android:id="@+id/setLocationButton"
             android:layout_width="match_parent"
@@ -104,6 +161,7 @@
             android:text="Set Location"
             android:textStyle="bold"
             android:textColor="@android:color/white"
+            android:padding="14dp"
             android:backgroundTint="#64B5F6"
             android:layout_marginBottom="24dp" />
 
@@ -115,8 +173,9 @@
             android:text="Save"
             android:textStyle="bold"
             android:textColor="@android:color/white"
-            android:backgroundTint="#64B5F6"
-            android:layout_marginBottom="16dp" />
+            android:padding="14dp"
+            android:backgroundTint="#42A5F5"
+            android:layout_marginBottom="18dp" />
 
         <!-- Logout Button -->
         <Button
@@ -126,6 +185,7 @@
             android:text="Logout"
             android:textStyle="bold"
             android:textColor="@android:color/white"
+            android:padding="14dp"
             android:backgroundTint="#1976D2" />
 
     </LinearLayout>

@@ -33,7 +33,7 @@ class EditProductActivity : AppCompatActivity() {
     // AWS S3 Configuration
     private val ACCESS_KEY = ""
     private val SECRET_KEY = ""
-    private val BUCKET_NAME = ""
+    private val BUCKET_NAME =""
 
     private lateinit var s3Client: AmazonS3Client
     private lateinit var transferUtility: TransferUtility
