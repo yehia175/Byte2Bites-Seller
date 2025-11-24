@@ -54,7 +54,6 @@ class OrderAdapter(
         val itemsTotal = order.items.sumOf { (it.price.toDoubleOrNull() ?: 0.0) * it.quantity }
         val deliveryFee = (order.deliveryFeeCents ?: 0) / 100.0
         val totalPrice = itemsTotal + deliveryFee
-
         holder.deliveryPriceText.text = "Delivery: ${"%.2f".format(deliveryFee)} EGP"
         holder.totalPriceText.text = "Total: ${"%.2f".format(totalPrice)} EGP"
 
@@ -87,12 +86,12 @@ class OrderAdapter(
         // READY BUTTON UI
         holder.btnFinishedPreparing.apply {
             when {
-                isCompleted -> { // 2nd click already done
+                isCompleted -> { // Completed already
                     isEnabled = false
                     text = "Done"
                     setBackgroundColor(context.getColor(android.R.color.darker_gray))
                 }
-                firstReadyClick -> { // After first click, waiting for second
+                firstReadyClick && order.deliveryType.uppercase() == "PICKUP" -> { // PICKUP, after first click
                     isEnabled = true
                     text = "Done"
                     setBackgroundColor(context.getColor(android.R.color.holo_blue_dark))
@@ -112,8 +111,6 @@ class OrderAdapter(
 
         // READY BUTTON CLICK LOGIC
         holder.btnFinishedPreparing.setOnClickListener {
-
-            // CASE 0 — NOT ACCEPTED YET → SHOW ALERT
             if (!prefs.getBoolean("accepted_${order.orderId}", false)) {
                 AlertDialog.Builder(context)
                     .setTitle("Action not allowed")
@@ -123,16 +120,31 @@ class OrderAdapter(
                 return@setOnClickListener
             }
 
-            val alreadyClickedOnce = prefs.getBoolean("first_ready_${order.orderId}", false)
+            if (order.deliveryType.uppercase() == "DELIVERY") {
+                // DELIVERY → single click
+                db.child("Sellers").child(order.sellerUid)
+                    .child("orders").child(order.orderId)
+                    .child("status").setValue("READY FOR DELIVERING")
 
-            // CASE 1 — FIRST CLICK
-            if (!alreadyClickedOnce) {
-                performFirstReadyClick(order, holder, prefs)
-                return@setOnClickListener
+                prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
+
+                holder.btnFinishedPreparing.isEnabled = false
+                holder.btnFinishedPreparing.text = "Done"
+                holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+
+                sendNotification(context,
+                    "Order Ready",
+                    "Order from ${order.buyerName} is READY FOR DELIVERING",
+                    order.orderId.hashCode())
+            } else {
+                // PICKUP → two clicks
+                val alreadyClickedOnce = prefs.getBoolean("first_ready_${order.orderId}", false)
+                if (!alreadyClickedOnce) {
+                    performFirstReadyClick(order, holder, prefs)
+                } else {
+                    performSecondReadyClick(order, holder, prefs)
+                }
             }
-
-            // CASE 2 — SECOND CLICK
-            performSecondReadyClick(order, holder, prefs)
         }
 
         // Reject
@@ -163,7 +175,7 @@ class OrderAdapter(
     }
 
     // =====================================================================
-    // ACCEPT ORDER — BOTH ALERTS FIXED
+    // ACCEPT ORDER — stock logic
     // =====================================================================
     private fun acceptOrderWithAlerts(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
@@ -172,7 +184,6 @@ class OrderAdapter(
         val zeroStockItems = mutableListOf<String>()
         var checksDone = 0
 
-        // 1️⃣ Pre-accept check — old alert
         for (item in order.items) {
             val prodRef = db.child("Sellers").child(sellerUid).child("products").child(item.productID)
             prodRef.get().addOnSuccessListener { snap ->
@@ -184,7 +195,6 @@ class OrderAdapter(
                 checksDone++
                 if (checksDone == order.items.size) {
                     if (insufficientItems.isNotEmpty()) {
-                        // OLD ALERT → do not accept
                         AlertDialog.Builder(holder.itemView.context)
                             .setTitle("Cannot Accept Order")
                             .setMessage("Insufficient stock for:\n${insufficientItems.joinToString("\n")}")
@@ -193,16 +203,13 @@ class OrderAdapter(
                         return@addOnSuccessListener
                     }
 
-                    // ✅ Accept order
                     db.child("Sellers").child(sellerUid).child("orders")
                         .child(orderId).child("status").setValue("PREPARING")
 
                     prefs.edit().putBoolean("accepted_${orderId}", true).apply()
 
-                    // Decrease stock + collect zero-stock items
                     val totalItems = order.items.size
                     var updatedItems = 0
-
                     for (orderedItem in order.items) {
                         val pRef = db.child("Sellers").child(sellerUid)
                             .child("products").child(orderedItem.productID)
@@ -212,12 +219,9 @@ class OrderAdapter(
                             val newQty = currentQty - orderedItem.quantity
                             pRef.child("quantity").setValue(newQty.toString())
 
-                            if (newQty == 0) {
-                                zeroStockItems.add(orderedItem.name)
-                            }
+                            if (newQty == 0) zeroStockItems.add(orderedItem.name)
 
                             updatedItems++
-                            // Show post-accept zero stock alert after all items processed
                             if (updatedItems == totalItems && zeroStockItems.isNotEmpty()) {
                                 AlertDialog.Builder(holder.itemView.context)
                                     .setTitle("Stock Alert")
@@ -228,7 +232,6 @@ class OrderAdapter(
                         }
                     }
 
-                    // UI updates
                     holder.btnAcceptOrder.isEnabled = false
                     holder.btnAcceptOrder.text = "Accepted"
                     holder.btnRejectOrder.isEnabled = false
@@ -246,20 +249,15 @@ class OrderAdapter(
     }
 
     // =====================================================================
-    // FIRST READY CLICK
+    // PICKUP FIRST CLICK
     // =====================================================================
     private fun performFirstReadyClick(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
         val orderId = order.orderId
 
-        val newStatus = if (order.deliveryType.uppercase() == "DELIVERY")
-            "READY FOR DELIVERING"
-        else
-            "READY FOR PICKUP"
-
         db.child("Sellers").child(sellerUid)
             .child("orders").child(orderId)
-            .child("status").setValue(newStatus)
+            .child("status").setValue("READY FOR PICKUP")
 
         prefs.edit().putBoolean("first_ready_${orderId}", true).apply()
 
@@ -268,11 +266,11 @@ class OrderAdapter(
         holder.btnFinishedPreparing.setBackgroundColor(holder.itemView.context.getColor(android.R.color.holo_blue_dark))
 
         sendNotification(holder.itemView.context, "Order Ready",
-            "Order from ${order.buyerName} is $newStatus", orderId.hashCode())
+            "Order from ${order.buyerName} is READY FOR PICKUP", orderId.hashCode())
     }
 
     // =====================================================================
-    // SECOND READY CLICK
+    // PICKUP SECOND CLICK
     // =====================================================================
     private fun performSecondReadyClick(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
