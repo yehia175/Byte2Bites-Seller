@@ -40,6 +40,7 @@ class profileActivity : AppCompatActivity() {
     private lateinit var logoutButton: Button
     private lateinit var backButton: ImageButton
     private lateinit var locationText: TextView
+    private lateinit var setLocationButton: Button
 
     private var selectedImageUri: Uri? = null
     private var latitude: Double? = null
@@ -79,6 +80,7 @@ class profileActivity : AppCompatActivity() {
         saveButton = findViewById(R.id.saveButton)
         logoutButton = findViewById(R.id.logoutButton)
         locationText = findViewById(R.id.locationText)
+        setLocationButton = findViewById(R.id.setLocationButton)
 
         // Back button
         backButton.setOnClickListener {
@@ -95,8 +97,8 @@ class profileActivity : AppCompatActivity() {
             startActivityForResult(intent, IMAGE_PICK_CODE)
         }
 
-        // Tap on locationText to fetch current address
-        locationText.setOnClickListener {
+        // Tap on locationButton to fetch current address
+        setLocationButton.setOnClickListener {
             getCurrentAddress()
         }
 
