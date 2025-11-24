@@ -10,7 +10,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.firebase.auth.FirebaseAuth
-import com.google.firebase.database.*
 
 class VoipCallActivity : AppCompatActivity() {
 
@@ -24,15 +23,13 @@ class VoipCallActivity : AppCompatActivity() {
     }
 
     private val auth: FirebaseAuth by lazy { FirebaseAuth.getInstance() }
-    private val db: FirebaseDatabase by lazy { FirebaseDatabase.getInstance() }
-
-    private var currentCallId: String? = null
-    private var callListener: ValueEventListener? = null
-    private var callRef: DatabaseReference? = null
 
     // Audio engine
     private var audioEngine: VoipAudioEngine? = null
     private var pendingAudioParams: Pair<String, Int>? = null
+
+    // Track whether we consider a call “active” (local only now)
+    private var callActive: Boolean = false
 
     // XML Views
     private lateinit var ivBack: ImageView
@@ -75,7 +72,7 @@ class VoipCallActivity : AppCompatActivity() {
         btnEndCall.setOnClickListener { endCallWithConfirm() }
     }
 
-    // ---------------- VOIP SIGNALING ---------------- //
+    // ---------------- “CALL” (LOCAL ONLY) ---------------- //
 
     private fun startCall() {
         val callerUid = auth.currentUser?.uid
@@ -99,91 +96,26 @@ class VoipCallActivity : AppCompatActivity() {
             return
         }
 
-        // If a previous call is active, end it first
-        if (currentCallId != null) {
+        // If a previous call is active, end it first (local only)
+        if (callActive) {
             Toast.makeText(this, "Ending previous call and starting a new one.", Toast.LENGTH_SHORT).show()
-            endCall(false)
+            endCall(showToast = false)
         }
 
-        val callsRef = db.reference.child("VoipCalls")
-        val callId = callsRef.push().key ?: System.currentTimeMillis().toString()
-        val ts = System.currentTimeMillis()
+        // No database signaling anymore – just start audio
+        callActive = true
+        tvCallStatus.text = "Status: CONNECTING…"
+        startAudio(ip, port)
 
-        val voipCall = VoipCall(
-            callId = callId,
-            callerUid = callerUid,
-            calleeUid = calleeUid,
-            ipAddress = ip,
-            port = port,
-            status = "INITIATED",
-            timestamp = ts
-        )
-
-        currentCallId = callId
-        callRef = callsRef.child(callId)
-
-        callRef!!
-            .setValue(voipCall)
-            .addOnSuccessListener {
-                tvCallStatus.text = "Status: INITIATED (waiting for other side)"
-                attachCallListener()
-
-                // 🔊 Start audio once signaling is created
-                startAudio(ip, port)
-
-                Toast.makeText(
-                    this,
-                    "Call created. Other side must also start their audio.",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-            .addOnFailureListener { e ->
-                currentCallId = null
-                callRef = null
-                Toast.makeText(this, "Failed to start call: ${e.message}", Toast.LENGTH_LONG).show()
-            }
-    }
-
-    /**
-     * Listen for changes to this call's status in /VoipCalls/{callId}.
-     */
-    private fun attachCallListener() {
-        val ref = callRef ?: return
-
-        callListener?.let { ref.removeEventListener(it) }
-
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val call = snapshot.getValue(VoipCall::class.java)
-                if (call == null) {
-                    tvCallStatus.text = "Status: Call deleted"
-                    return
-                }
-                val statusText = when (call.status) {
-                    "INITIATED" -> "INITIATED (waiting for other side)"
-                    "RINGING" -> "RINGING (callee is being alerted)"
-                    "CONNECTED" -> "CONNECTED (call in progress)"
-                    "ENDED" -> "ENDED"
-                    else -> call.status
-                }
-                tvCallStatus.text = "Status: $statusText"
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                Toast.makeText(
-                    this@VoipCallActivity,
-                    "Call listener cancelled: ${error.message}",
-                    Toast.LENGTH_LONG
-                ).show()
-            }
-        }
-
-        ref.addValueEventListener(listener)
-        callListener = listener
+        Toast.makeText(
+            this,
+            "Call started locally. Other side must also start their audio with the same IP/port.",
+            Toast.LENGTH_LONG
+        ).show()
     }
 
     private fun endCallWithConfirm() {
-        if (currentCallId == null) {
+        if (!callActive) {
             Toast.makeText(this, "No active call to end.", Toast.LENGTH_SHORT).show()
             return
         }
@@ -192,42 +124,24 @@ class VoipCallActivity : AppCompatActivity() {
             .setTitle("End call")
             .setMessage("Are you sure you want to end this call?")
             .setPositiveButton("End") { _, _ ->
-                endCall(true)
+                endCall(showToast = true)
             }
             .setNegativeButton("Cancel", null)
             .show()
     }
 
     /**
-     * End call, stop audio, and DELETE the signaling node
-     * so calls are NOT saved as history in the DB.
+     * End call, stop audio.
+     * No DB → nothing to delete or update.
      */
     private fun endCall(showToast: Boolean) {
-        val ref = callRef
-        val id = currentCallId
-
-        if (ref == null || id == null) {
-            if (showToast) {
-                Toast.makeText(this, "No active call.", Toast.LENGTH_SHORT).show()
-            }
-            stopAudio()
-            return
-        }
-
-        // Stop audio first
         stopAudio()
+        callActive = false
+        tvCallStatus.text = "Status: IDLE"
 
-        // Set status to ENDED then remove the node
-        ref.child("status").setValue("ENDED").addOnCompleteListener {
-            // Remove the call from DB entirely
-            ref.removeValue()
-            if (showToast) {
-                Toast.makeText(this, "Call ended.", Toast.LENGTH_SHORT).show()
-            }
+        if (showToast) {
+            Toast.makeText(this, "Call ended.", Toast.LENGTH_SHORT).show()
         }
-
-        currentCallId = null
-        callRef = null
     }
 
     // ---------------- AUDIO PERMISSIONS + ENGINE ---------------- //
@@ -274,6 +188,7 @@ class VoipCallActivity : AppCompatActivity() {
             tvCallStatus.text = "Status: CONNECTED (audio running)"
         } catch (e: SecurityException) {
             Toast.makeText(this, "Mic permission denied, cannot start audio.", Toast.LENGTH_LONG).show()
+            callActive = false
         }
     }
 
@@ -306,12 +221,6 @@ class VoipCallActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-        // Clean up listener + audio
-        callRef?.let { ref ->
-            callListener?.let { listener ->
-                ref.removeEventListener(listener)
-            }
-        }
         stopAudio()
     }
 }
