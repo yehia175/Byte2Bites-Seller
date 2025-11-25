@@ -41,7 +41,7 @@ class OrdersActivity : AppCompatActivity() {
 
         // RecyclerView setup
         ordersRecyclerView = findViewById(R.id.ordersRecyclerView)
-        ordersRecyclerView.layoutManager = LinearLayoutManager(this)
+        ordersRecyclerView.layoutManager = LinearLayoutManager(this)//“Display all items one below the other like a normal scrolling list.”
         orderAdapter = OrderAdapter(ordersList)
         ordersRecyclerView.adapter = orderAdapter
 
@@ -50,52 +50,56 @@ class OrdersActivity : AppCompatActivity() {
         fetchOrders()
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannel() {//Think of a notification channel as a category or group for your notifications.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "order_channel",
+                "order_channel",//(used by your app to send notifications into this channel, like identifier for channel)
                 "Order Notifications",
-                NotificationManager.IMPORTANCE_HIGH
+                NotificationManager.IMPORTANCE_HIGH//(makes notification appear immediately with sound & heads-up popup)
             )
-            channel.description = "Notifications for new or updated orders"
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+            channel.description = "Notifications for new or updated orders"//Users will see this when they check app notification settings.
+            val manager = getSystemService(NotificationManager::class.java)//You need this system service to register the channel.
+            manager?.createNotificationChannel(channel)//"Hey, create this notification channel so we can use it."
         }
     }
 
-    private fun requestNotificationPermission() {
+    private fun requestNotificationPermission() {//Starting from Android 13 (TIRAMISU / API 33), apps must ask the user for permission to show notifications.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ActivityCompat.checkSelfPermission(
+            if (ActivityCompat.checkSelfPermission(//“Does the user already allow my app to send notifications?”
                     this,
                     Manifest.permission.POST_NOTIFICATIONS
-                ) != PackageManager.PERMISSION_GRANTED
+                ) != PackageManager.PERMISSION_GRANTED//IF NOT GRANTED DO THE FOLLOWING. IF YES, DO NOTHING
             ) {
+                //shows permission dialog
                 ActivityCompat.requestPermissions(
                     this,
-                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),//“I want to ask the user for the POST_NOTIFICATIONS permission.”
                     101
                 )
             }
         }
     }
 
+    //⚠ VERY IMPORTANT
+    //This function does NOT show the permission popup. Permission shown above
     fun showOrderNotification(title: String, message: String, notificationId: Int) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
             ActivityCompat.checkSelfPermission(
                 this,
                 Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
-        ) return
+        ) return //the user did not give permission for notifications → STOP the function (return)
 
         val builder = NotificationCompat.Builder(this, "order_channel")
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(title)
             .setContentText(message)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)//Makes the notification appear immediately and pop up.
+            .setAutoCancel(true)//Notification disappears when user taps it.
 
+        //This is the line that actually shows the notification.
         val notificationManager = NotificationManagerCompat.from(this)
-        notificationManager.notify(notificationId, builder.build())
+        notificationManager.notify(notificationId, builder.build())//notificationId → unique number so notifications don’t overwrite each other
     }
 
     private fun fetchOrders() {
@@ -105,14 +109,14 @@ class OrdersActivity : AppCompatActivity() {
         ordersRef.addListenerForSingleValueEvent(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 ordersList.clear()
-                for (orderSnap in snapshot.children) {
-                    val status = orderSnap.child("status").getValue(String::class.java) ?: ""
-                    if (status.uppercase() == "REJECTED") continue
+                for (orderSnap in snapshot.children) {//Loop through each order
+                    val status = orderSnap.child("status").getValue(String::class.java) ?: ""//else, empty string
+                    if (status.uppercase() == "REJECTED") continue//skip rejected orders, they should be permenantly deleted from app
 
                     val orderId = orderSnap.key ?: continue
                     val buyerUid = orderSnap.child("buyerUid").getValue(String::class.java) ?: continue
                     val itemsSnap = orderSnap.child("items")
-                    if (!itemsSnap.exists()) continue
+                    if (!itemsSnap.exists()) continue//Skip the order if it has no items.
 
                     val deliveryFeeCents = orderSnap.child("deliveryFeeCents").getValue(Int::class.java) ?: 0
                     val deliveryType = orderSnap.child("deliveryType").getValue(String::class.java) ?: "PICKUP"
@@ -125,10 +129,11 @@ class OrdersActivity : AppCompatActivity() {
                             val productId = itemSnap.child("productID").getValue(String::class.java) ?: ""
                             val price = itemSnap.child("price").getValue(String::class.java) ?: "0"
 
+                            //Each child under items becomes an OrderItem object.
                             itemList.add(OrderItem(productId, name, quantity, price))
                         }
 
-                        val orderDisplay = OrderDisplay(
+                        val orderDisplay = OrderDisplay(//This contains everything needed to show one order card.
                             orderId = orderId,
                             sellerUid = sellerUid,
                             buyerName = buyerName,
@@ -138,8 +143,8 @@ class OrdersActivity : AppCompatActivity() {
                             deliveryFeeCents = deliveryFeeCents
                         )
 
-                        ordersList.add(0, orderDisplay)
-                        orderAdapter.updateList(ordersList)
+                        ordersList.add(0, orderDisplay)//Adds at index 0 → newest order appears first.
+                        orderAdapter.updateList(ordersList)//Refreshes the list so items show on screen.
                     }
                 }
             }
@@ -153,7 +158,7 @@ class OrdersActivity : AppCompatActivity() {
             .addListenerForSingleValueEvent(object : ValueEventListener {
                 override fun onDataChange(snapshot: DataSnapshot) {
                     val buyerName = snapshot.child("fullName").getValue(String::class.java) ?: "Unknown Buyer"
-                    callback(buyerName)
+                    callback(buyerName)//gets it back here
                 }
 
                 override fun onCancelled(error: DatabaseError) {
