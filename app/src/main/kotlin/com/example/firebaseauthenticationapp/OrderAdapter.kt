@@ -91,11 +91,13 @@ class OrderAdapter(
                     text = "Done"
                     setBackgroundColor(context.getColor(android.R.color.darker_gray))
                 }
-                firstReadyClick && order.deliveryType.uppercase() == "PICKUP" -> { // PICKUP, after first click
+                // For PICKUP: use firstReadyClick to show middle state
+                firstReadyClick && order.deliveryType.uppercase() == "PICKUP" -> {
                     isEnabled = true
                     text = "Done"
                     setBackgroundColor(context.getColor(android.R.color.holo_blue_dark))
                 }
+                // For DELIVERY and first click (if sellerDeliver yes) we rely on runtime read in click handler
                 else -> { // initial state
                     isEnabled = true
                     text = "Order Ready"
@@ -111,6 +113,7 @@ class OrderAdapter(
 
         // READY BUTTON CLICK LOGIC
         holder.btnFinishedPreparing.setOnClickListener {
+            // Prevent finishing before accept
             if (!prefs.getBoolean("accepted_${order.orderId}", false)) {
                 AlertDialog.Builder(context)
                     .setTitle("Action not allowed")
@@ -120,24 +123,98 @@ class OrderAdapter(
                 return@setOnClickListener
             }
 
+            // If DELIVERY: dynamic behavior based on sellerDeliver stored in Firebase
             if (order.deliveryType.uppercase() == "DELIVERY") {
-                // DELIVERY → single click
+
+                // Read sellerDeliver from Firebase for this order
                 db.child("Sellers").child(order.sellerUid)
                     .child("orders").child(order.orderId)
-                    .child("status").setValue("READY FOR DELIVERING")
+                    .child("sellerDeliver").get().addOnSuccessListener { snap ->
+                        val sellerDeliver = snap.getValue(String::class.java)?.uppercase() ?: "NO"
 
-                prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
+                        if (sellerDeliver == "YES") {
+                            // Seller will deliver -> two-click behavior for DELIVERY
+                            val alreadyClickedOnceForDelivery = prefs.getBoolean("first_ready_${order.orderId}", false)
+                            val alreadyCompleted = prefs.getBoolean("completed_${order.orderId}", false)
 
-                holder.btnFinishedPreparing.isEnabled = false
-                holder.btnFinishedPreparing.text = "Done"
-                holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+                            if (alreadyCompleted) {
+                                // already done — ensure disabled
+                                holder.btnFinishedPreparing.isEnabled = false
+                                holder.btnFinishedPreparing.text = "Done"
+                                holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+                                return@addOnSuccessListener
+                            }
 
-                sendNotification(context,
-                    "Order Ready",
-                    "Order from ${order.buyerName} is READY FOR DELIVERING",
-                    order.orderId.hashCode())
+                            if (!alreadyClickedOnceForDelivery) {
+                                // First delivery click -> change to Delivering
+                                db.child("Sellers").child(order.sellerUid)
+                                    .child("orders").child(order.orderId)
+                                    .child("status").setValue("DELIVERING")
+
+                                prefs.edit().putBoolean("first_ready_${order.orderId}", true).apply()
+
+                                holder.btnFinishedPreparing.text = "Delivering"
+                                holder.btnFinishedPreparing.isEnabled = true
+                                holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.holo_blue_dark))
+
+                                sendNotification(context,
+                                    "Order Delivering",
+                                    "Order from ${order.buyerName} is DELIVERING",
+                                    order.orderId.hashCode())
+                            } else {
+                                // Second delivery click -> Delivered & disable
+                                db.child("Sellers").child(order.sellerUid)
+                                    .child("orders").child(order.orderId)
+                                    .child("status").setValue("DELIVERED")
+
+                                prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
+
+                                holder.btnFinishedPreparing.text = "Delivered"
+                                holder.btnFinishedPreparing.isEnabled = false
+                                holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+
+                                sendNotification(context,
+                                    "Order Delivered",
+                                    "Order from ${order.buyerName} is DELIVERED",
+                                    order.orderId.hashCode())
+                            }
+                        } else {
+                            // sellerDeliver == "NO" or missing -> single-click behavior
+                            db.child("Sellers").child(order.sellerUid)
+                                .child("orders").child(order.orderId)
+                                .child("status").setValue("WAITING FOR DELIVERY")
+
+                            prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
+
+                            holder.btnFinishedPreparing.text = "Done"
+                            holder.btnFinishedPreparing.isEnabled = false
+                            holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+
+                            sendNotification(context,
+                                "Order Waiting",
+                                "Order from ${order.buyerName} is WAITING FOR DELIVERY",
+                                order.orderId.hashCode())
+                        }
+                    }.addOnFailureListener {
+                        // If read fails, fallback to single-click behavior (safe)
+                        db.child("Sellers").child(order.sellerUid)
+                            .child("orders").child(order.orderId)
+                            .child("status").setValue("WAITING FOR DELIVERY")
+
+                        prefs.edit().putBoolean("completed_${order.orderId}", true).apply()
+
+                        holder.btnFinishedPreparing.text = "Done"
+                        holder.btnFinishedPreparing.isEnabled = false
+                        holder.btnFinishedPreparing.setBackgroundColor(context.getColor(android.R.color.darker_gray))
+
+                        sendNotification(context,
+                            "Order Waiting",
+                            "Order from ${order.buyerName} is WAITING FOR DELIVERY",
+                            order.orderId.hashCode())
+                    }
+
             } else {
-                // PICKUP → two clicks
+                // PICKUP -> keep existing two-click logic (unchanged)
                 val alreadyClickedOnce = prefs.getBoolean("first_ready_${order.orderId}", false)
                 if (!alreadyClickedOnce) {
                     performFirstReadyClick(order, holder, prefs)
@@ -175,7 +252,7 @@ class OrderAdapter(
     }
 
     // =====================================================================
-    // ACCEPT ORDER — stock logic
+    // ACCEPT ORDER — stock logic + POST-ACCEPT sellerDeliver alert
     // =====================================================================
     private fun acceptOrderWithAlerts(order: OrderDisplay, holder: OrderViewHolder, prefs: android.content.SharedPreferences) {
         val sellerUid = order.sellerUid
@@ -184,6 +261,7 @@ class OrderAdapter(
         val zeroStockItems = mutableListOf<String>()
         var checksDone = 0
 
+        // 1️⃣ Pre-accept check — old alert
         for (item in order.items) {
             val prodRef = db.child("Sellers").child(sellerUid).child("products").child(item.productID)
             prodRef.get().addOnSuccessListener { snap ->
@@ -195,6 +273,7 @@ class OrderAdapter(
                 checksDone++
                 if (checksDone == order.items.size) {
                     if (insufficientItems.isNotEmpty()) {
+                        // OLD ALERT → do not accept
                         AlertDialog.Builder(holder.itemView.context)
                             .setTitle("Cannot Accept Order")
                             .setMessage("Insufficient stock for:\n${insufficientItems.joinToString("\n")}")
@@ -203,13 +282,16 @@ class OrderAdapter(
                         return@addOnSuccessListener
                     }
 
+                    // ✅ Accept order
                     db.child("Sellers").child(sellerUid).child("orders")
                         .child(orderId).child("status").setValue("PREPARING")
 
                     prefs.edit().putBoolean("accepted_${orderId}", true).apply()
 
+                    // Decrease stock + collect zero-stock items
                     val totalItems = order.items.size
                     var updatedItems = 0
+
                     for (orderedItem in order.items) {
                         val pRef = db.child("Sellers").child(sellerUid)
                             .child("products").child(orderedItem.productID)
@@ -219,9 +301,12 @@ class OrderAdapter(
                             val newQty = currentQty - orderedItem.quantity
                             pRef.child("quantity").setValue(newQty.toString())
 
-                            if (newQty == 0) zeroStockItems.add(orderedItem.name)
+                            if (newQty == 0) {
+                                zeroStockItems.add(orderedItem.name)
+                            }
 
                             updatedItems++
+                            // Show post-accept zero stock alert after all items processed
                             if (updatedItems == totalItems && zeroStockItems.isNotEmpty()) {
                                 AlertDialog.Builder(holder.itemView.context)
                                     .setTitle("Stock Alert")
@@ -232,6 +317,7 @@ class OrderAdapter(
                         }
                     }
 
+                    // UI updates
                     holder.btnAcceptOrder.isEnabled = false
                     holder.btnAcceptOrder.text = "Accepted"
                     holder.btnRejectOrder.isEnabled = false
@@ -243,6 +329,27 @@ class OrderAdapter(
                         "Order from ${order.buyerName} is now PREPARING",
                         orderId.hashCode()
                     )
+
+                    // ----------------------------------------------------------------
+                    // NEW ALERT: "Will seller deliver this order?" (Yes / No)
+                    // Write sellerDeliver = "Yes" or "No" under the order node.
+                    // ----------------------------------------------------------------
+                    if (order.deliveryType.uppercase() == "DELIVERY") {
+                        AlertDialog.Builder(holder.itemView.context)
+                            .setTitle("Will seller deliver this order?")
+                            .setPositiveButton("Yes") { _, _ ->
+                                db.child("Sellers").child(sellerUid)
+                                    .child("orders").child(orderId)
+                                    .child("sellerDeliver").setValue("Yes")
+                            }
+                            .setNegativeButton("No") { _, _ ->
+                                db.child("Sellers").child(sellerUid)
+                                    .child("orders").child(orderId)
+                                    .child("sellerDeliver").setValue("No")
+                            }
+                            .setCancelable(false)
+                            .show()
+                    }
                 }
             }
         }

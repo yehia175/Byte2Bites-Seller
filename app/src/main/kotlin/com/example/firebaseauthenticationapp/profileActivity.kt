@@ -57,9 +57,11 @@ class profileActivity : AppCompatActivity() {
 
     companion object {
         private const val IMAGE_PICK_CODE = 1001
-        private const val LOCATION_PERMISSION_CODE = 100
+        private const val LOCATION_PERMISSION_CODE = 100//can be any number not 100 but must be unique
     }
 
+    //Called automatically when we start
+    //override: redefining method already exists in parent class
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
@@ -88,7 +90,7 @@ class profileActivity : AppCompatActivity() {
             finish()
         }
 
-        loadUserProfile()
+        loadUserProfile()//runs immediately when activity is created
 
         // Pick profile image
         profileImage.setOnClickListener {
@@ -155,7 +157,7 @@ class profileActivity : AppCompatActivity() {
                     if (!user.profileImageUrl.isNullOrEmpty()) {
                         Glide.with(this)
                             .load(user.profileImageUrl)
-                            .placeholder(R.drawable.ic_person)
+                            .placeholder(R.drawable.ic_person)//displayed until image is loaded
                             .into(profileImage)
                     }
                 }
@@ -173,7 +175,7 @@ class profileActivity : AppCompatActivity() {
             "profileImageUrl" to imageUrl
         )
 
-        latitude?.let { updates["latitude"] = it }
+        latitude?.let { updates["latitude"] = it }//IF LATITUDE NOT NULL, let executes block inside where it is value of latitude
         longitude?.let { updates["longitude"] = it }
         address?.let { updates["address"] = it }
 
@@ -208,7 +210,7 @@ class profileActivity : AppCompatActivity() {
                 longitude = location.longitude
 
                 try {
-                    val geocoder = Geocoder(this, Locale.getDefault())
+                    val geocoder = Geocoder(this, Locale.getDefault())//Geocoder: converts coordinates to address
                     val addressList: List<Address> =
                         geocoder.getFromLocation(latitude!!, longitude!!, 1).orEmpty()
                     if (addressList.isNotEmpty()) {
@@ -230,7 +232,8 @@ class profileActivity : AppCompatActivity() {
         }
     }
 
-    override fun onRequestPermissionsResult(
+    //Called automatically after user responds to permission request
+    override fun onRequestPermissionsResult(//handles what happens after user accepts/denies permission
         requestCode: Int,
         permissions: Array<out String>,
         grantResults: IntArray
@@ -246,12 +249,12 @@ class profileActivity : AppCompatActivity() {
     }
 
     private fun uploadImageToS3(uid: String, imageUri: Uri, callback: (String) -> Unit) {
-        val uniqueFileName = "$uid-${System.currentTimeMillis()}.jpg"
-        val tempFile = File(cacheDir, uniqueFileName)
+        val uniqueFileName = "$uid-${System.currentTimeMillis()}.jpg"//uid+timestamp
+        val tempFile = File(cacheDir, uniqueFileName)//save in cacheDir
         try {
-            val inputStream = contentResolver.openInputStream(imageUri)
-            val outputStream = FileOutputStream(tempFile)
-            inputStream?.copyTo(outputStream)
+            val inputStream = contentResolver.openInputStream(imageUri)//opens selected image from gallery
+            val outputStream = FileOutputStream(tempFile)//create stream to write temp file
+            inputStream?.copyTo(outputStream)//copy all bytes of image to temp file
             inputStream?.close()
             outputStream.close()
         } catch (e: Exception) {
@@ -263,15 +266,15 @@ class profileActivity : AppCompatActivity() {
             BUCKET_NAME,
             uniqueFileName,
             tempFile,
-            CannedAccessControlList.PublicRead
+            CannedAccessControlList.PublicRead//makes uploaded file publicly accessible
         )
 
-        uploadObserver.setTransferListener(object : TransferListener {
+        uploadObserver.setTransferListener(object : TransferListener {//tracks upload progress and errors
             override fun onStateChanged(id: Int, state: TransferState?) {
-                if (state == TransferState.COMPLETED) {
-                    val imageUrl = s3Client.getUrl(BUCKET_NAME, uniqueFileName).toString()
+                if (state == TransferState.COMPLETED) {//upload succeeded
+                    val imageUrl = s3Client.getUrl(BUCKET_NAME, uniqueFileName).toString()//get url and convert to string
                     runOnUiThread {
-                        callback(imageUrl)
+                        callback(imageUrl)//passes url to our activity
                         tempFile.delete()
                     }
                 } else if (state == TransferState.FAILED) {
@@ -280,8 +283,8 @@ class profileActivity : AppCompatActivity() {
                 }
             }
 
-            override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {}
-            override fun onError(id: Int, ex: Exception?) {
+            override fun onProgressChanged(id: Int, bytesCurrent: Long, bytesTotal: Long) {}//could update progress bar to show progress of upload
+            override fun onError(id: Int, ex: Exception?) {//null pointer exception, file read/write errors
                 runOnUiThread {
                     Toast.makeText(this@profileActivity, "Error: ${ex?.message}", Toast.LENGTH_SHORT).show()
                     tempFile.delete()
@@ -290,11 +293,13 @@ class profileActivity : AppCompatActivity() {
         })
     }
 
+    //Handles how user picks up image from gallery
+    //CALLED AUTOMATICALLY WHEN WE TAP PROFILE IMAGE
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == IMAGE_PICK_CODE && resultCode == Activity.RESULT_OK) {
-            selectedImageUri = data?.data
-            profileImage.setImageURI(selectedImageUri)
+            selectedImageUri = data?.data //stores URI here if user actually selected image
+            profileImage.setImageURI(selectedImageUri)//immediately displays image
         }
     }
 }
